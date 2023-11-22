@@ -10,9 +10,10 @@ This repository contains an implementation of [Model Predictive Path Integral Co
 - Python 3.11
 - PyTorch 2.0
 
-## Pre installation
+<details>
+<summary>Docker Setup</summary>
 
-### Install docker
+### Install Docker
 
 [Installation guide](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository)
 
@@ -25,8 +26,8 @@ sudo usermod -aG docker $USER
 ```
 
 
-#### Setup GPU for Docker
-
+### Setup GPU for Docker
+[Installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 ```bash
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
   && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
@@ -41,8 +42,9 @@ sudo nvidia-ctk runtime configure --runtime=docker
 
 sudo systemctl restart docker
 ```
+</details>
 
-## Install
+## Installation
 
 ### with Docker (Recommend)
 
