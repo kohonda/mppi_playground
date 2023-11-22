@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[project]
+name = "mppi_playground"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib==3.8.2",
+    "fire==0.5.0",
+    "numpy==1.26.2",
+    "torch==2.00",
+    "torchvision==0.15.1",
+    "gymnasium==0.29.1",
+    "moviepy==1.0.3",
+    "gymnasium[classic_control]",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pysen",
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+]

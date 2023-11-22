@@ -1,0 +1,19 @@
+{
+    "name": "dev",
+    "dockerFile": "../Dockerfile",
+    "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+    },
+    "extensions": [
+        "ms-python.python",
+        "ms-vscode-remote.remote-containers",
+        "ms-python.vscode-pylance",
+        "GitHub.copilot",
+        "ms-python.black-formatter",
+        "ms-python.flake8",
+    ],
+    "runArgs": [
+        "--gpus", "all",
+        "--shm-size", "10G",
+    ]
+}
