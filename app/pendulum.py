@@ -3,7 +3,6 @@ import torch
 import time
 import gymnasium
 import fire
-import numpy as np
 
 from controller.mppi import MPPI
 
@@ -24,7 +23,7 @@ def main(save_mode: bool = False):
         m = 1
         l = 1
         dt = 0.05
-        u = action
+        u = action[:, 0].view(-1, 1)
         u = torch.clamp(u, -2, 2)
         newthdot = (
             thdot

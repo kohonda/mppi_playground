@@ -69,8 +69,7 @@ source .venv/bin/activate
 pip3 install -e .[dev]
 ```
 
-
-## Play
+## Play with Gym Classic Control
 
 ### Pendulum
 ```bash
@@ -78,6 +77,14 @@ python3 app/pendulum.py
 ```
 <p align="center">
   <img src="./media/pendulum.gif" width="500" alt="pendulum">
+</p>
+
+### Cartpole
+```bash
+python3 app/cartpole.py
+```
+<p align="center">
+  <img src="./media/cartpole.gif" width="500" alt="cartpole">
 </p>
 
 ## Reference
