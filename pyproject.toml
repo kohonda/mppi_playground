@@ -9,16 +9,15 @@ package-dir = {"" = "src"}
 name = "mppi_playground"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "matplotlib==3.8.2",
     "fire==0.5.0",
     "numpy==1.26.2",
     "torch==2.00",
     "torchvision==0.15.1",
-    "gymnasium==0.29.1",
-    "moviepy==1.0.3",
-    "gymnasium[classic_control]",
+    "gymnasium[all]==0.29.1",
+    "pybullet==3.2.5",
 ]
 
 [project.optional-dependencies]

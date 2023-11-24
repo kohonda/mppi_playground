@@ -8,19 +8,21 @@ RUN apt-get -y update && apt-get -y install --no-install-recommends\
     libssl-dev\
     curl\
     git\
-    x11-apps
+    x11-apps \
+    swig
 
-# Python (version 3.11)
+# Python (version 3.10)
 RUN add-apt-repository ppa:deadsnakes/ppa && \
   apt-get update && apt-get install -y \
-  python3.11 \
-  python3.11-venv \
-  python3.11-distutils \
-  python3.11-tk
+  python3.10 \
+  python3.10-dev \
+  python3.10-venv \
+  python3.10-distutils \
+  python3.10-tk
 
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
 RUN pip3 install --upgrade pip
 RUN pip3 install -U pip distlib setuptools wheel
 

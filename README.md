@@ -7,7 +7,7 @@ This repository contains an implementation of [Model Predictive Path Integral Co
 
 ## Dependencies
 - cuda 11.8
-- Python 3.11
+- Python 3.10
 - PyTorch 2.0
 
 <details>
