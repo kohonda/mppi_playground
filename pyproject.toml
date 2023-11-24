@@ -17,7 +17,8 @@ dependencies = [
     "torch==2.00",
     "torchvision==0.15.1",
     "gymnasium[all]==0.29.1",
-    "pybullet==3.2.5",
+    "mujoco==2.3.7",
+    # "pybullet==3.2.5",
 ]
 
 [project.optional-dependencies]

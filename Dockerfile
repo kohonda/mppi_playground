@@ -4,12 +4,16 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y update && apt-get -y install --no-install-recommends\
     software-properties-common\
     libgl1-mesa-dev\
+    libgl1-mesa-glx \
+    libglew-dev \
+    libosmesa6-dev \
     wget\
     libssl-dev\
     curl\
     git\
     x11-apps \
-    swig
+    swig \
+    patchelf
 
 # Python (version 3.10)
 RUN add-apt-repository ppa:deadsnakes/ppa && \
@@ -21,7 +25,6 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
   python3.10-tk
 
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
-
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
 RUN pip3 install --upgrade pip
 RUN pip3 install -U pip distlib setuptools wheel
@@ -40,6 +43,15 @@ RUN rm -rf /var/lib/apt/lists/*
 
 # pytorch 2.0
 RUN pip3 install torch==2.0.0+cu118 torchvision==0.15.1+cu118 torchaudio==2.0.1 --extra-index-url https://download.pytorch.org/whl/cu118
+
+# mujoco 210
+RUN curl -o /usr/local/bin/patchelf https://s3-us-west-2.amazonaws.com/openai-sci-artifacts/manual-builds/patchelf_0.9_amd64.elf \
+    && chmod +x /usr/local/bin/patchelf
+RUN mkdir -p /root/.mujoco \
+    && wget https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz -O mujoco.tar.gz \
+    && tar -xf mujoco.tar.gz -C /root/.mujoco \
+    && rm mujoco.tar.gz
+ENV LD_LIBRARY_PATH /root/.mujoco/mujoco210/bin:${LD_LIBRARY_PATH}
 
 WORKDIR /workspace
 COPY src/ src/
