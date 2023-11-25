@@ -20,7 +20,6 @@ class MPPI(nn.Module):
     def __init__(
         self,
         horizon: int,
-        delta: float,
         num_samples: int,
         dim_state: int,
         dim_control: int,
@@ -73,7 +72,6 @@ class MPPI(nn.Module):
 
         # set parameters
         self._horizon = horizon
-        self._delta = delta
         self._num_samples = num_samples
         self._dim_state = dim_state
         self._dim_control = dim_control

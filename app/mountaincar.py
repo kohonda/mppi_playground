@@ -17,65 +17,81 @@ def main(save_mode: bool = False):
     @torch.jit.script
     def dynamics(state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
         # dynamics from gymnasium
-        th = state[:, 0].view(-1, 1)
-        thdot = state[:, 1].view(-1, 1)
-        g = 10
-        m = 1
-        l = 1
-        dt = 0.05
-        u = action[:, 0].view(-1, 1)
-        u = torch.clamp(u, -2, 2)
-        newthdot = (
-            thdot
-            + (-3 * g / (2 * l) * torch.sin(th + torch.pi) + 3.0 / (m * l**2) * u)
-            * dt
-        )
-        newth = th + newthdot * dt
-        newthdot = torch.clamp(newthdot, -8, 8)
-
-        state = torch.cat((newth, newthdot), dim=1)
-        return state
+        min_action = -1.0
+        max_action = 1.0
+        min_position = -1.2
+        max_position = 0.6
+        max_speed = 0.07
+        goal_position = 0.45
+        goal_velocity = 0.0
+        power = 0.0015
+        
+        position = state[:, 0].view(-1, 1)
+        velocity = state[:, 1].view(-1, 1)
+        
+        force = torch.clamp(action[:, 0].view(-1, 1), min_action, max_action)
+        
+        velocity += force * power - 0.0025 * torch.cos(3 * position)
+        velocity = torch.clamp(velocity, -max_speed, max_speed)
+        position += velocity
+        position = torch.clamp(position, min_position, max_position)
+        # if (position == min_position and velocity < 0):
+        #     velocity = torch.zeros_like(velocity)
+            
+        new_state = torch.cat((position, velocity), dim=1)
+        
+        return new_state
 
     @torch.jit.script
     def stage_cost(state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
-        theta = state[:, 0]
-        theta_dt = state[:, 1]
-        # u = action[:, 0]
-        cost = angle_normalize(theta) ** 2 + 0.1 * theta_dt**2
+        goal_position = 0.45
+        goal_velocity = 0.0
+        
+        position = state[:, 0]
+        velocity = state[:, 1]
+        
+        cost = (goal_position - position)**2 
+        # + 0.01 * (velocity-goal_velocity)**2 
+        
         return cost
 
     @torch.jit.script
     def terminal_cost(state: torch.Tensor) -> torch.Tensor:
-        theta = state[:, 0]
-        theta_dt = state[:, 1]
-        cost = angle_normalize(theta) ** 2 + 0.1 * theta_dt**2
+        goal_position = 0.45
+        goal_velocity = 0.0
+        
+        position = state[:, 0]
+        velocity = state[:, 1]
+        
+        cost = (goal_position - position)**2 
+        # + (velocity-goal_velocity)**2
         return cost
 
     # simulator
     if save_mode:
-        env = gymnasium.make("Pendulum-v1", render_mode="rgb_array")
+        env = gymnasium.make("MountainCarContinuous-v0", render_mode="rgb_array")
         env = gymnasium.wrappers.RecordVideo(env=env, video_folder="video")
     else:
-        env = gymnasium.make("Pendulum-v1", render_mode="human")
+        env = gymnasium.make("MountainCarContinuous-v0", render_mode="human")
     observation, _ = env.reset(seed=42)
 
     # solver
     solver = MPPI(
-        horizon=15,
+        horizon=1000,
         num_samples=1000,
         dim_state=2,
         dim_control=1,
         dynamics=dynamics,
         stage_cost=stage_cost,
         terminal_cost=terminal_cost,
-        u_min=torch.tensor([-2.0]),
-        u_max=torch.tensor([2.0]),
+        u_min=torch.tensor([-1.0]),
+        u_max=torch.tensor([1.0]),
         sigmas=torch.tensor([1.0]),
-        lambda_=1.0,
+        lambda_=0.1,
     )
 
     average_time = 0
-    for i in range(200):
+    for i in range(300):
         state = env.unwrapped.state.copy()
 
         # solve

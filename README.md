@@ -1,5 +1,5 @@
 # MPPI Playground
-This repository contains an implementation of [Model Predictive Path Integral Control (MPPI)](https://arxiv.org/abs/1707.02342). It uses PyTorch to accelerate computations on the GPU and gymnasium as a simulator interface.
+This repository contains an implementation of [Model Predictive Path Integral Control (MPPI)](https://arxiv.org/abs/1707.02342) with PyTorch to accelerate computations on the GPU.
 
 ## Tested Native Environment
 - Ubuntu Focal 20.04 (LTS)
@@ -85,6 +85,14 @@ python3 app/cartpole.py
 ```
 <p align="center">
   <img src="./media/cartpole.gif" width="500" alt="cartpole">
+</p>
+
+### Mountain car
+```bash
+python3 app/mountaincar.py
+```
+<p align="center">
+  <img src="./media/mountaincar.gif" width="500" alt="mountaincar">
 </p>
 
 ## Reference
