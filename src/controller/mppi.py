@@ -30,7 +30,7 @@ class MPPI(nn.Module):
         u_max: torch.Tensor,
         sigmas: torch.Tensor,
         lambda_: float,
-        device="cuda",
+        device=torch.device("cuda"),
         dtype=torch.float32,
         seed: int = 42,
     ) -> None:
@@ -64,7 +64,7 @@ class MPPI(nn.Module):
         # assert num_samples % batch_size == 0 and num_samples >= batch_size
 
         # device and dtype
-        if torch.cuda.is_available() and device == "cuda":
+        if torch.cuda.is_available() and device == torch.device("cuda"):
             self._device = torch.device("cuda")
         else:
             self._device = torch.device("cpu")
@@ -109,9 +109,16 @@ class MPPI(nn.Module):
 
         self._previous_action_seq = zero_mean_seq
 
-        # warm up GPU for faster computation
-        self.forward(
-            torch.zeros(self._dim_state, device=self._device, dtype=self._dtype)
+        # inner variables
+        self._state_seq_batch = torch.zeros(
+            self._num_samples,
+            self._horizon + 1,
+            self._dim_state,
+            device=self._device,
+            dtype=self._dtype,
+        )
+        self._weights = torch.zeros(
+            self._num_samples, device=self._device, dtype=self._dtype
         )
 
     def forward(self, state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -144,18 +151,11 @@ class MPPI(nn.Module):
         )
 
         # rollout samples in parallel
-        state_seq_batch = torch.zeros(
-            self._num_samples,
-            self._horizon + 1,
-            self._dim_state,
-            device=self._device,
-            dtype=self._dtype,
-        )
-        state_seq_batch[:, 0, :] = state.repeat(self._num_samples, 1)
+        self._state_seq_batch[:, 0, :] = state.repeat(self._num_samples, 1)
 
         for t in range(self._horizon):
-            state_seq_batch[:, t + 1, :] = self._dynamics(
-                state_seq_batch[:, t, :], self._perturbed_action_seqs[:, t, :]
+            self._state_seq_batch[:, t + 1, :] = self._dynamics(
+                self._state_seq_batch[:, t, :], self._perturbed_action_seqs[:, t, :]
             )
 
         # compute sample costs
@@ -167,7 +167,7 @@ class MPPI(nn.Module):
         )
         for t in range(self._horizon):
             stage_costs[:, t] = self._stage_cost(
-                state_seq_batch[:, t, :], self._perturbed_action_seqs[:, t, :]
+                self._state_seq_batch[:, t, :], self._perturbed_action_seqs[:, t, :]
             )
             action_costs[:, t] = (
                 mean_action_seq[t]
@@ -175,7 +175,7 @@ class MPPI(nn.Module):
                 @ self._perturbed_action_seqs[:, t].T
             )
 
-        terminal_costs = self._terminal_cost(state_seq_batch[:, -1, :])
+        terminal_costs = self._terminal_cost(self._state_seq_batch[:, -1, :])
 
         costs = (
             torch.sum(stage_costs, dim=1)
@@ -184,11 +184,12 @@ class MPPI(nn.Module):
         )
 
         # calculate weights
-        weights = torch.softmax(-costs / self._lambda, dim=0)
+        self._weights = torch.softmax(-costs / self._lambda, dim=0)
 
         # find optimal control by weighted average
         optimal_action_seq = torch.sum(
-            weights.view(self._num_samples, 1, 1) * self._perturbed_action_seqs, dim=0
+            self._weights.view(self._num_samples, 1, 1) * self._perturbed_action_seqs,
+            dim=0,
         )
 
         # predivtive state seq
@@ -210,3 +211,24 @@ class MPPI(nn.Module):
         self._previous_action_seq = optimal_action_seq
 
         return optimal_action_seq, optimal_state_seq
+
+    def get_top_samples(self, num_samples: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Get top samples.
+        Args:
+            num_samples (int): Number of state samples to get.
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Tuple of top samples and their weights.
+        """
+        assert num_samples <= self._num_samples
+
+        # large weights are better
+        top_indices = torch.topk(self._weights, num_samples).indices
+
+        top_samples = self._state_seq_batch[top_indices]
+        top_weights = self._weights[top_indices]
+
+        top_samples = top_samples[torch.argsort(top_weights, descending=True)]
+        top_weights = top_weights[torch.argsort(top_weights, descending=True)]
+
+        return top_samples, top_weights
