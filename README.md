@@ -69,7 +69,15 @@ source .venv/bin/activate
 pip3 install -e .[dev]
 ```
 
-## Play with Gym Classic Control
+## Examples
+
+### Navigation 2D
+```bash
+python3 app/navigation2d.py
+```
+<p align="center">
+  <img src="./media/navigation_2d_42.gif" width="500" alt="navigation2d">
+</p>
 
 ### Pendulum
 ```bash
