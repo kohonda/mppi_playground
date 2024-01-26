@@ -25,45 +25,45 @@ def main(save_mode: bool = False):
         goal_position = 0.45
         goal_velocity = 0.0
         power = 0.0015
-        
+
         position = state[:, 0].view(-1, 1)
         velocity = state[:, 1].view(-1, 1)
-        
+
         force = torch.clamp(action[:, 0].view(-1, 1), min_action, max_action)
-        
+
         velocity += force * power - 0.0025 * torch.cos(3 * position)
         velocity = torch.clamp(velocity, -max_speed, max_speed)
         position += velocity
         position = torch.clamp(position, min_position, max_position)
         # if (position == min_position and velocity < 0):
         #     velocity = torch.zeros_like(velocity)
-            
+
         new_state = torch.cat((position, velocity), dim=1)
-        
+
         return new_state
 
     @torch.jit.script
     def stage_cost(state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
         goal_position = 0.45
         goal_velocity = 0.0
-        
+
         position = state[:, 0]
         velocity = state[:, 1]
-        
-        cost = (goal_position - position)**2 
-        # + 0.01 * (velocity-goal_velocity)**2 
-        
+
+        cost = (goal_position - position) ** 2
+        # + 0.01 * (velocity-goal_velocity)**2
+
         return cost
 
     @torch.jit.script
     def terminal_cost(state: torch.Tensor) -> torch.Tensor:
         goal_position = 0.45
         goal_velocity = 0.0
-        
+
         position = state[:, 0]
         velocity = state[:, 1]
-        
-        cost = (goal_position - position)**2 
+
+        cost = (goal_position - position) ** 2
         # + (velocity-goal_velocity)**2
         return cost
 

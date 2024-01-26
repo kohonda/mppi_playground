@@ -16,7 +16,7 @@ def main(save_mode: bool = False):
     # solver
     solver = MPPI(
         horizon=50,
-        num_samples=100000,
+        num_samples=10000,
         dim_state=3,
         dim_control=2,
         dynamics=env.dynamics,
@@ -25,7 +25,7 @@ def main(save_mode: bool = False):
         u_min=env.u_min,
         u_max=env.u_max,
         sigmas=torch.tensor([0.5, 0.5]),
-        lambda_=1,
+        lambda_=1.0,
     )
 
     state = env.reset()
@@ -42,7 +42,7 @@ def main(save_mode: bool = False):
 
         is_collisions = env.collision_check(state=state_seq)
 
-        top_samples, top_weights = solver.get_top_samples(num_samples=100)
+        top_samples, top_weights = solver.get_top_samples(num_samples=300)
 
         if save_mode:
             env.render(
@@ -68,7 +68,7 @@ def main(save_mode: bool = False):
             break
 
     print("average solve time: {}".format(average_time * 1000), " [ms]")
-    env.close()  # close window ans save video
+    env.close()  # close window and save video if save_mode is True
 
 
 if __name__ == "__main__":

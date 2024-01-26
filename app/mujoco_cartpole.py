@@ -14,7 +14,7 @@ def angle_normalize(x):
 
 
 # Not work well because of the difference of dynamics
-# I should use the true dynamics from mujoco like: 
+# I should use the true dynamics from mujoco like:
 # https://github.com/mohakbhardwaj/mjmpc/blob/master/examples/example_mpc.py#L112
 def main(save_mode: bool = False):
     # dynamics and cost
@@ -31,7 +31,7 @@ def main(save_mode: bool = False):
         x_dt = state[:, 1].view(-1, 1)
         theta = state[:, 2].view(-1, 1)
         theta_dt = state[:, 3].view(-1, 1)
-        
+
         force = action[:, 0].view(-1, 1)
 
         gravity = 9.8
@@ -41,7 +41,7 @@ def main(save_mode: bool = False):
         length = 0.5  # actually half the pole's length
         polemass_length = masspole * length
         tau = 0.02  # seconds between state updates
-        
+
         costheta = torch.cos(theta)
         sintheta = torch.sin(theta)
 
@@ -99,7 +99,7 @@ def main(save_mode: bool = False):
         env = gym.wrappers.RecordVideo(env=env, video_folder="video")
     else:
         env = gym.make("InvertedPendulum-v4", render_mode="human")
-    
+
     observation, _ = env.reset(seed=42)
 
     # start from the inverted position
@@ -120,13 +120,13 @@ def main(save_mode: bool = False):
         sigmas=torch.tensor([1.0]),
         lambda_=1.0,
     )
-    
+
     average_time = 0
     for i in range(500):
         # solve
         start = time.time()
         action_seq, state_seq = solver.forward(state=observation)
-        
+
         elipsed_time = time.time() - start
         average_time = i / (i + 1) * average_time + elipsed_time / (i + 1)
 

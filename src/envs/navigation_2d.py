@@ -24,10 +24,7 @@ def angle_normalize(x):
 
 class Navigation2DEnv:
     def __init__(
-        self,
-        device=torch.device("cuda"),
-        dtype=torch.float32,
-        seed: int = 42,
+        self, device=torch.device("cuda"), dtype=torch.float32, seed: int = 42
     ) -> None:
         # device and dtype
         if torch.cuda.is_available() and device == torch.device("cuda"):
@@ -72,8 +69,8 @@ class Navigation2DEnv:
         )
 
         # u: [v, omega] (m/s, rad/s)
-        self.u_min = torch.tensor([-1.0, -1.0], device=self._device, dtype=self._dtype)
-        self.u_max = torch.tensor([1.0, 1.0], device=self._device, dtype=self._dtype)
+        self.u_min = torch.tensor([0.0, -1.0], device=self._device, dtype=self._dtype)
+        self.u_max = torch.tensor([2.0, 1.0], device=self._device, dtype=self._dtype)
 
     def reset(self) -> torch.Tensor:
         """
@@ -132,7 +129,7 @@ class Navigation2DEnv:
         self._ax.set_ylabel("y [m]")
 
         # obstacle map
-        self._obstacle_map.render(self._ax)
+        self._obstacle_map.render(self._ax, zorder=10)
 
         # start and goal
         self._ax.scatter(
@@ -140,12 +137,14 @@ class Navigation2DEnv:
             self._start_pos[1].item(),
             marker="o",
             color="red",
+            zorder=10,
         )
         self._ax.scatter(
             self._goal_pos[0].item(),
             self._goal_pos[1].item(),
             marker="o",
-            color="green",
+            color="orange",
+            zorder=10,
         )
 
         # robot
@@ -153,7 +152,8 @@ class Navigation2DEnv:
             self._robot_state[0].item(),
             self._robot_state[1].item(),
             marker="o",
-            color="blue",
+            color="green",
+            zorder=100,
         )
 
         # visualize top samples with different alpha based on weights
@@ -167,14 +167,15 @@ class Navigation2DEnv:
                 self._ax.plot(
                     top_samples[i, :, 0],
                     top_samples[i, :, 1],
-                    color="black",
+                    color="lightblue",
                     alpha=top_weights[i],
+                    zorder=1,
                 )
 
         # predicted trajectory
         if predicted_trajectory is not None:
             # if is collision color is red
-            colors = np.array(["orange"] * predicted_trajectory.shape[1])
+            colors = np.array(["darkblue"] * predicted_trajectory.shape[1])
             if is_collisions is not None:
                 is_collisions = is_collisions.cpu().numpy()
                 is_collisions = np.any(is_collisions, axis=0)
@@ -185,7 +186,8 @@ class Navigation2DEnv:
                 predicted_trajectory[0, :, 1].cpu().numpy(),
                 color=colors,
                 marker="o",
-                s=10,
+                s=3,
+                zorder=2,
             )
 
         if mode == "human":
@@ -215,12 +217,6 @@ class Navigation2DEnv:
             # clip.write_videofile(path, fps=10)
             clip.write_gif(path, fps=10)
 
-            # save first frame as png
-            plt.imsave(
-                "video/" + "navigation_2d_" + str(self._seed) + ".png",
-                self._rendered_frames[0],
-            )
-
     def dynamics(
         self, state: torch.Tensor, action: torch.Tensor, delta_t: float = 0.1
     ) -> torch.Tensor:
@@ -233,6 +229,8 @@ class Navigation2DEnv:
         Returns:
             torch.Tensor: shape (batch_size, 3) [x, y, theta]
         """
+
+        # Perform calculations as before
         x = state[:, 0].view(-1, 1)
         y = state[:, 1].view(-1, 1)
         theta = state[:, 2].view(-1, 1)
@@ -244,7 +242,7 @@ class Navigation2DEnv:
         new_y = y + v * torch.sin(theta) * delta_t
         new_theta = angle_normalize(theta + omega * delta_t)
 
-        # clamp x and y to the map boundary
+        # Clamp x and y to the map boundary
         x_lim = torch.tensor(
             self._obstacle_map.x_lim, device=self._device, dtype=self._dtype
         )
@@ -254,7 +252,9 @@ class Navigation2DEnv:
         clamped_x = torch.clamp(new_x, x_lim[0], x_lim[1])
         clamped_y = torch.clamp(new_y, y_lim[0], y_lim[1])
 
-        return torch.cat([clamped_x, clamped_y, new_theta], dim=1)
+        result = torch.cat([clamped_x, clamped_y, new_theta], dim=1)
+
+        return result
 
     def stage_cost(self, state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
         """
@@ -265,6 +265,7 @@ class Navigation2DEnv:
         Returns:
             torch.Tensor: shape (batch_size,)
         """
+
         goal_cost = torch.norm(state[:, :2] - self._goal_pos, dim=1)
 
         pos_batch = state[:, :2].unsqueeze(1)  # (batch_size, 1, 2)
@@ -285,7 +286,8 @@ class Navigation2DEnv:
         Returns:
             torch.Tensor: shape (batch_size,)
         """
-        return self.stage_cost(state=state, action=torch.zeros_like(state[:, :2]))
+        zero_action = torch.zeros_like(state[:, :2])
+        return self.stage_cost(state=state, action=torch.zeros_like(zero_action))
 
     def collision_check(self, state: torch.Tensor) -> torch.Tensor:
         """

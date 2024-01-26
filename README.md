@@ -76,7 +76,7 @@ pip3 install -e .[dev]
 python3 app/navigation2d.py
 ```
 <p align="center">
-  <img src="./media/navigation_2d_42.gif" width="500" alt="navigation2d">
+  <img src="./media/navigation_2d.gif" width="500" alt="navigation2d">
 </p>
 
 ### Pendulum

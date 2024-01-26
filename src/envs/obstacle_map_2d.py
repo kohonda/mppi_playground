@@ -179,18 +179,29 @@ class ObstacleMap:
         x_occ = torch.round(x_occ).long().to(self._device)
 
         # deal with out of bound
+        is_out_of_bound = torch.logical_or(
+            torch.logical_or(
+                x_occ[..., 0] < 0, x_occ[..., 0] >= self._map_torch.shape[0]
+            ),
+            torch.logical_or(
+                x_occ[..., 1] < 0, x_occ[..., 1] >= self._map_torch.shape[1]
+            ),
+        )
         x_occ[..., 0] = torch.clamp(x_occ[..., 0], 0, self._map_torch.shape[0] - 1)
         x_occ[..., 1] = torch.clamp(x_occ[..., 1], 0, self._map_torch.shape[1] - 1)
 
         # collision check
         collisions = self._map_torch[x_occ[..., 0], x_occ[..., 1]]
 
+        # out of bound cost
+        collisions[is_out_of_bound] = 1.0
+
         return collisions
 
     def render_occupancy(self, ax, cmap="binary") -> None:
         ax.imshow(self._map, cmap=cmap)
 
-    def render(self, ax) -> None:
+    def render(self, ax, zorder: int = 0) -> None:
         """
         Render in continuous space.
         """
@@ -200,7 +211,11 @@ class ObstacleMap:
 
         # render circle obstacles
         for circle_obs in self.circle_obs_list:
-            ax.add_patch(plt.Circle(circle_obs.center, circle_obs.radius, color="gray"))
+            ax.add_patch(
+                plt.Circle(
+                    circle_obs.center, circle_obs.radius, color="gray", zorder=zorder
+                )
+            )
 
         # render rectangle obstacles
         for rectangle_obs in self.rectangle_obs_list:
@@ -211,6 +226,7 @@ class ObstacleMap:
                     rectangle_obs.width,
                     rectangle_obs.height,
                     color="gray",
+                    zorder=zorder,
                 )
             )
 
