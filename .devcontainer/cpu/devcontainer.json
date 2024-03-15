@@ -1,6 +1,7 @@
 {
-    "name": "dev",
-    "dockerFile": "../Dockerfile",
+    "name": "dev-cpu",
+    "dockerFile": "../../docker/cpu/Dockerfile",
+    "context": "../../",
     "settings": {
         "terminal.integrated.shell.linux": "/bin/bash"
     },
@@ -13,7 +14,6 @@
         "ms-python.flake8",
     ],
     "runArgs": [
-        "--gpus", "all",
         "--shm-size", "10G",
     ]
 }

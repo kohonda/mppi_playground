@@ -3,12 +3,12 @@ This repository contains an implementation of [Model Predictive Path Integral Co
 
 ## Tested Native Environment
 - Ubuntu Focal 20.04 (LTS)
-- NVIDIA Driver 510 or later due to PyTorch 2.x
+- NVIDIA Driver 510 or later due to PyTorch 2.x (optional for GPU acceleration)
 
 ## Dependencies
-- cuda 11.8
 - Python 3.10
 - PyTorch 2.0
+- cuda 11.8 (optional for GPU acceleration)
 
 <details>
 <summary>Docker Setup</summary>
@@ -49,16 +49,20 @@ sudo systemctl restart docker
 ### with Docker (Recommend)
 
 ```bash
-# build container
-make build
+# build container with GPU support
+make build-gpu
+# or build container without GPU support
+# make build-cpu
 
 # Open remote container via Vscode (Recommend)
 # 1. Open the folder using vscode
 # 2. Ctrl+P and select 'devcontainer rebuild and reopen in container'
 # Then, you can skip the following commands
 
-# Or Run container via terminal
-make bash
+# Or Run container via terminal with GPU support
+make bash-gpu
+# or Run container via terminal without GPU support
+# make bash-cpu
 ```
 
 ### with venv
