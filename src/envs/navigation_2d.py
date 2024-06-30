@@ -256,9 +256,9 @@ class Navigation2DEnv:
 
         return result
 
-    def stage_cost(self, state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
+    def cost_function(self, state: torch.Tensor, action: torch.Tensor, info: dict) -> torch.Tensor:
         """
-        Calculate stage cost.
+        Calculate cost function
         Args:
             state (torch.Tensor): state batch tensor, shape (batch_size, 3) [x, y, theta]
             action (torch.Tensor): control batch tensor, shape (batch_size, 2) [v, omega]
@@ -278,16 +278,6 @@ class Navigation2DEnv:
 
         return cost
 
-    def terminal_cost(self, state: torch.Tensor) -> torch.Tensor:
-        """
-        Calculate terminal cost.
-        Args:
-            x (torch.Tensor): state batch tensor, shape (batch_size, 3) [x, y, theta]
-        Returns:
-            torch.Tensor: shape (batch_size,)
-        """
-        zero_action = torch.zeros_like(state[:, :2])
-        return self.stage_cost(state=state, action=torch.zeros_like(zero_action))
 
     def collision_check(self, state: torch.Tensor) -> torch.Tensor:
         """

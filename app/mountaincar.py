@@ -42,8 +42,7 @@ def main(save_mode: bool = False):
 
         return new_state
 
-    @torch.jit.script
-    def stage_cost(state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
+    def cost_func(state: torch.Tensor, action: torch.Tensor, info) -> torch.Tensor:
         goal_position = 0.45
         goal_velocity = 0.0
 
@@ -55,17 +54,6 @@ def main(save_mode: bool = False):
 
         return cost
 
-    @torch.jit.script
-    def terminal_cost(state: torch.Tensor) -> torch.Tensor:
-        goal_position = 0.45
-        goal_velocity = 0.0
-
-        position = state[:, 0]
-        velocity = state[:, 1]
-
-        cost = (goal_position - position) ** 2
-        # + (velocity-goal_velocity)**2
-        return cost
 
     # simulator
     if save_mode:
@@ -82,8 +70,7 @@ def main(save_mode: bool = False):
         dim_state=2,
         dim_control=1,
         dynamics=dynamics,
-        stage_cost=stage_cost,
-        terminal_cost=terminal_cost,
+        cost_func=cost_func,
         u_min=torch.tensor([-1.0]),
         u_max=torch.tensor([1.0]),
         sigmas=torch.tensor([1.0]),

@@ -69,21 +69,7 @@ def main(save_mode: bool = False):
 
         return new_state
 
-    @torch.jit.script
-    def stage_cost(state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
-        x = state[:, 0]
-        x_dt = state[:, 1]
-        theta = state[:, 2]
-        theta_dt = state[:, 3]
-
-        normlized_theta = angle_normalize(theta)
-
-        cost = normlized_theta**2 + 0.1 * theta_dt**2 + 0.1 * x**2
-
-        return cost
-
-    @torch.jit.script
-    def terminal_cost(state: torch.Tensor) -> torch.Tensor:
+    def stage_cost(state: torch.Tensor, action: torch.Tensor, info) -> torch.Tensor:
         x = state[:, 0]
         x_dt = state[:, 1]
         theta = state[:, 2]
@@ -114,8 +100,7 @@ def main(save_mode: bool = False):
         dim_state=4,
         dim_control=1,
         dynamics=dynamics,
-        stage_cost=stage_cost,
-        terminal_cost=terminal_cost,
+        cost_func=stage_cost,
         u_min=torch.tensor([-1.0]),
         u_max=torch.tensor([1.0]),
         sigmas=torch.tensor([1.0]),
