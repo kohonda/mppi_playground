@@ -3,10 +3,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get -y update && apt-get -y install --no-install-recommends\
     software-properties-common\
-    libgl1-mesa-dev\
+    libgl1-mesa-dev \
     libgl1-mesa-glx \
+    libgl1-mesa-dri \
+    mesa-utils \
     libglew-dev \
     libosmesa6-dev \
+    fontconfig \
+    libfreetype6-dev \
     wget\
     libssl-dev\
     curl\
@@ -14,9 +18,7 @@ RUN apt-get -y update && apt-get -y install --no-install-recommends\
     x11-apps \
     swig \
     patchelf \
-    build-essential \ 
-    mesa-utils
-
+    build-essential
 
 # Python (version 3.10)
 RUN add-apt-repository ppa:deadsnakes/ppa && \
@@ -33,8 +35,8 @@ RUN pip3 install --upgrade pip
 RUN pip3 install -U pip distlib setuptools wheel
 
 # vnc
-RUN apt-get install -y xvfb x11vnc icewm lsof net-tools
-RUN echo "alias vnc='PASSWORD=\$(openssl rand -hex 24); for i in {99..0}; do export DISPLAY=:\$i; if ! xdpyinfo &>/dev/null; then break; fi; done; for i in {5999..5900}; do if ! netstat -tuln | grep -q \":\$i \"; then PORT=\$i; break; fi; done; Xvfb \$DISPLAY -screen 0 1400x900x24 & until xdpyinfo > /dev/null 2>&1; do sleep 0.1; done; x11vnc -forever -noxdamage -display \$DISPLAY -rfbport \$PORT -passwd \$PASSWORD > /dev/null 2>&1 & until lsof -i :\$PORT > /dev/null; do sleep 0.1; done; icewm-session & echo DISPLAY=\$DISPLAY, PORT=\$PORT, PASSWORD=\$PASSWORD'" >> ~/.bashrc
+# RUN apt-get install -y xvfb x11vnc icewm lsof net-tools
+# RUN echo "alias vnc='PASSWORD=\$(openssl rand -hex 24); for i in {99..0}; do export DISPLAY=:\$i; if ! xdpyinfo &>/dev/null; then break; fi; done; for i in {5999..5900}; do if ! netstat -tuln | grep -q \":\$i \"; then PORT=\$i; break; fi; done; Xvfb \$DISPLAY -screen 0 1400x900x24 & until xdpyinfo > /dev/null 2>&1; do sleep 0.1; done; x11vnc -forever -noxdamage -display \$DISPLAY -rfbport \$PORT -passwd \$PASSWORD > /dev/null 2>&1 & until lsof -i :\$PORT > /dev/null; do sleep 0.1; done; icewm-session & echo DISPLAY=\$DISPLAY, PORT=\$PORT, PASSWORD=\$PASSWORD'" >> ~/.bashrc
 
 # utils
 RUN apt-get update && apt-get install -y htop vim ffmpeg 
@@ -44,8 +46,11 @@ RUN apt-get update && apt-get install -y htop vim ffmpeg
 # clear cache
 RUN rm -rf /var/lib/apt/lists/*
 
+# install pyOpenGL
+RUN pip3 install PyOpenGL PyOpenGL_accelerate
+
 # pytorch for CPU only
-RUN pip3 install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --extra-index-url https://download.pytorch.org/whl/cpu
+RUN pip3 install torch==2.2.2 torchvision==0.17.2 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # mujoco 210
 RUN curl -o /usr/local/bin/patchelf https://s3-us-west-2.amazonaws.com/openai-sci-artifacts/manual-builds/patchelf_0.9_amd64.elf \
@@ -63,3 +68,4 @@ COPY pyproject.toml .
 RUN pip3 install -e .[dev]
 
 CMD ["bash"]
+

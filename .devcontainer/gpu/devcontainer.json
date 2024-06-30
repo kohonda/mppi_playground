@@ -16,5 +16,6 @@
     "runArgs": [
         "--gpus", "all",
         "--shm-size", "10G",
+        "-e", "LIBGL_ALWAYS_SOFTWARE=1"
     ]
 }

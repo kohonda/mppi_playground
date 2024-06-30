@@ -6,9 +6,6 @@ This repository contains an implementation of [Model Predictive Path Integral Co
 - NVIDIA Driver 510 or later due to PyTorch 2.x (optional for GPU acceleration)
 
 ## Dependencies
-- Python 3.10
-- PyTorch 2.0
-- cuda 11.8 (optional for GPU acceleration)
 
 <details>
 <summary>Docker Setup</summary>
