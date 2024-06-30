@@ -23,7 +23,7 @@ class MPPI(nn.Module):
         dim_state: int,
         dim_control: int,
         dynamics: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
-        cost_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+        cost_func: Callable[[torch.Tensor, torch.Tensor, Dict], torch.Tensor],
         u_min: torch.Tensor,
         u_max: torch.Tensor,
         sigmas: torch.Tensor,
@@ -93,16 +93,26 @@ class MPPI(nn.Module):
         self._sg_poly_order = sg_poly_order
 
         # noise distribution
-        zero_mean = torch.zeros(dim_control, device=self._device, dtype=self._dtype)
-        self._covariance = torch.diag(sigmas**2).to(self._device, self._dtype)
-        self._inv_covariance = torch.inverse(self._covariance).to(
-            self._device, self._dtype
+        self._covariance = torch.zeros(
+            self._horizon,
+            self._dim_control,
+            self._dim_control,
+            device=self._device,
+            dtype=self._dtype,
         )
+        self._covariance[:, :, :] = torch.diag(sigmas**2).to(self._device, self._dtype)
+        self._inv_covariance = torch.zeros_like(
+            self._covariance, device=self._device, dtype=self._dtype
+        )
+        for t in range(1, self._horizon):
+            self._inv_covariance[t] = torch.inverse(self._covariance[t])
 
+        zero_mean = torch.zeros(dim_control, device=self._device, dtype=self._dtype)
         self._noise_distribution = MultivariateNormal(
             loc=zero_mean, covariance_matrix=self._covariance
         )
-        self._sample_shape = torch.Size([self._num_samples, self._horizon])
+
+        self._sample_shape = torch.Size([self._num_samples])
 
         # sampling with reparameting trick
         self._action_noises = self._noise_distribution.rsample(
@@ -116,6 +126,8 @@ class MPPI(nn.Module):
             zero_mean_seq + self._action_noises, self._u_min, self._u_max
         )
 
+        self._previous_action_seq = zero_mean_seq
+
         # init satitzky-golay filter
         self._coeffs = self._savitzky_golay_coeffs(
             self._sg_window_size, self._sg_poly_order
@@ -125,9 +137,6 @@ class MPPI(nn.Module):
         )  # previous inputted actions for sg filter
 
         # inner variables
-        self._previous_action_seq = torch.zeros(
-            self._horizon, self._dim_control, device=self._device, dtype=self._dtype
-        )
         self._state_seq_batch = torch.zeros(
             self._num_samples,
             self._horizon + 1,
@@ -138,8 +147,8 @@ class MPPI(nn.Module):
         self._weights = torch.zeros(
             self._num_samples, device=self._device, dtype=self._dtype
         )
-        self._current_state = torch.zeros(
-            self._dim_state, device=self._device, dtype=self._dtype
+        self._optimal_state_seq = torch.zeros(
+            self._horizon + 1, self._dim_state, device=self._device, dtype=self._dtype
         )
 
     def reset(self):
@@ -218,23 +227,28 @@ class MPPI(nn.Module):
             )
             action_costs[:, t] = (
                 mean_action_seq[t]
-                @ self._inv_covariance
+                @ self._inv_covariance[t]
                 @ self._perturbed_action_seqs[:, t].T
             )
 
         prev_state = self._state_seq_batch[:, -2, :]
         info = {"prev_state": prev_state}
         zero_action = torch.zeros(
-            self._num_samples, self._dim_control, device=self._device, dtype=self._dtype
+            self._num_samples,
+            self._dim_control,
+            device=self._device,
+            dtype=self._dtype,
         )
         terminal_costs = self._cost_func(
             self._state_seq_batch[:, -1, :], zero_action, info
         )
 
+        # In the original paper, the action cost is added to consider KL div. penalty,
+        # but it is easier to tune without it
         costs = (
             torch.sum(costs, dim=1)
             + terminal_costs
-            + torch.sum(self._lambda * action_costs, dim=1)
+            # + torch.sum(self._lambda * action_costs, dim=1)
         )
 
         # calculate weights
@@ -245,6 +259,28 @@ class MPPI(nn.Module):
             self._weights.view(self._num_samples, 1, 1) * self._perturbed_action_seqs,
             dim=0,
         )
+
+        mean_action_seq = optimal_action_seq
+
+        # calculate new covariance
+        # https://arxiv.org/pdf/2104.00241
+        # covariance = torch.sum(
+        #     self._weights.view(self._num_samples, 1, 1)
+        #     * (self._perturbed_action_seqs - optimal_action_seq) ** 2,
+        #     dim=0,
+        # )  # T x dim_control
+
+        # small_cov = 1e-6 * torch.eye(
+        #     self._dim_control, device=self._device, dtype=self._dtype
+        # )
+        # self._covariance = torch.diag_embed(covariance) + small_cov
+
+        # for t in range(1, self._horizon):
+        #     self._inv_covariance[t] = torch.inverse(self._covariance[t])
+        # zero_mean = torch.zeros(self._dim_control, device=self._device, dtype=self._dtype)
+        # self._noise_distribution = MultivariateNormal(
+        #     loc=zero_mean, covariance_matrix=self._covariance
+        # )
 
         if self._use_sg_filter:
             # apply savitzky-golay filter to N-1 previous action history + N optimal action seq
@@ -270,10 +306,7 @@ class MPPI(nn.Module):
 
         # predivtive state seq
         expanded_optimal_action_seq = optimal_action_seq.repeat(1, 1, 1)
-        optimal_state_seq = self._states_prediction(
-            state, expanded_optimal_action_seq
-        )
-        self._current_state = state  # to visualize
+        optimal_state_seq = self._states_prediction(state, expanded_optimal_action_seq)
 
         # update previous actions
         self._previous_action_seq = optimal_action_seq
@@ -397,4 +430,3 @@ class MPPI(nn.Module):
         )
 
         return y_filtered.view(-1)
-            

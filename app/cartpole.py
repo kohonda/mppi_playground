@@ -90,19 +90,19 @@ def main(save_mode: bool = False):
     observation, _ = env.reset(seed=42)
 
     # start from the inverted position
-    env.unwrapped.state = np.array([0.0, 0.0, np.pi, 0.0])
-    observation, _, _, _, _ = env.step(0)
+    # env.unwrapped.state = np.array([0.0, 0.0, np.pi, 0.0])
+    # observation, _, _, _, _ = env.step(0)
 
     # solver
     solver = MPPI(
-        horizon=1000,
-        num_samples=5000,
+        horizon=10,
+        num_samples=100,
         dim_state=4,
         dim_control=1,
         dynamics=dynamics,
         cost_func=stage_cost,
-        u_min=torch.tensor([-1.0]),
-        u_max=torch.tensor([1.0]),
+        u_min=torch.tensor([-3.0]),
+        u_max=torch.tensor([3.0]),
         sigmas=torch.tensor([1.0]),
         lambda_=0.001,
     )

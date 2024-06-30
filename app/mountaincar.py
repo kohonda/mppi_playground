@@ -54,7 +54,6 @@ def main(save_mode: bool = False):
 
         return cost
 
-
     # simulator
     if save_mode:
         env = gymnasium.make("MountainCarContinuous-v0", render_mode="rgb_array")
@@ -65,7 +64,7 @@ def main(save_mode: bool = False):
 
     # solver
     solver = MPPI(
-        horizon=1000,
+        horizon=100,
         num_samples=1000,
         dim_state=2,
         dim_control=1,
