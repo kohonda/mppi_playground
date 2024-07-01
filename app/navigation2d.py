@@ -25,6 +25,7 @@ def main(save_mode: bool = False):
         u_max=env.u_max,
         sigmas=torch.tensor([0.5, 0.5]),
         lambda_=1.0,
+        auto_lambda=False,
     )
 
     state = env.reset()
@@ -32,8 +33,7 @@ def main(save_mode: bool = False):
     average_time = 0
     for i in range(max_steps):
         start = time.time()
-        with torch.no_grad():
-            action_seq, state_seq = solver.forward(state=state)
+        action_seq, state_seq = solver.forward(state=state)
         end = time.time()
         average_time += (end - start) / max_steps
 

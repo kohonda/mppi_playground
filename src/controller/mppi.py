@@ -28,6 +28,7 @@ class MPPI(nn.Module):
         u_max: torch.Tensor,
         sigmas: torch.Tensor,
         lambda_: float,
+        auto_lambda: bool = False,
         exploration: float = 0.0,
         use_sg_filter: bool = False,
         sg_window_size: int = 5,
@@ -151,6 +152,16 @@ class MPPI(nn.Module):
             self._horizon + 1, self._dim_state, device=self._device, dtype=self._dtype
         )
 
+        # auto lambda tuning
+        self._auto_lambda = auto_lambda
+        if auto_lambda:
+            self.log_tempature = torch.nn.Parameter(
+                torch.log(
+                    torch.tensor([self._lambda], device=self._device, dtype=self._dtype)
+                )
+            )
+            self.optimizer = torch.optim.Adam([self.log_tempature], lr=1e-2)
+
     def reset(self):
         """
         Reset the previous action sequence.
@@ -261,6 +272,20 @@ class MPPI(nn.Module):
         )
 
         mean_action_seq = optimal_action_seq
+
+        # auto-tune temperature parameter
+        # Refer E step of MPO algorithm:
+        # https://arxiv.org/pdf/1806.06920
+        if self._auto_lambda:
+            for _ in range(1):
+                self.optimizer.zero_grad()
+                tempature = torch.nn.functional.softplus(self.log_tempature)
+                cost_logsumexp = torch.logsumexp(-costs / tempature, dim=0)
+                epsilon = 0.1  # tolerance hyperparameter for KL divergence
+                loss = tempature * (epsilon + torch.mean(cost_logsumexp))
+                loss.backward()
+                self.optimizer.step()
+            self._lambda = torch.exp(self.log_tempature).item()
 
         # calculate new covariance
         # https://arxiv.org/pdf/2104.00241
