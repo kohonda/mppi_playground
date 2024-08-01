@@ -230,7 +230,12 @@ class MPPI(nn.Module):
         for t in range(self._horizon):
             prev_index = t - 1 if t > 0 else 0
             prev_state = self._state_seq_batch[:, prev_index, :]
-            info = {"prev_state": prev_state, "initial_state": initial_state}
+            prev_action = self._perturbed_action_seqs[:, prev_index, :]
+            # info update
+            info["prev_state"] = prev_state
+            info["prev_action"] = prev_action
+            info["initial_state"] = initial_state
+            info["t"] = t
             costs[:, t] = self._cost_func(
                 self._state_seq_batch[:, t, :],
                 self._perturbed_action_seqs[:, t, :],
@@ -243,7 +248,7 @@ class MPPI(nn.Module):
             )
 
         prev_state = self._state_seq_batch[:, -2, :]
-        info = {"prev_state": prev_state}
+        info["prev_state"] = prev_state
         zero_action = torch.zeros(
             self._num_samples,
             self._dim_control,
