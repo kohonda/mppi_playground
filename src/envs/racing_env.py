@@ -15,7 +15,8 @@ import os
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 from envs.obstacle_map_2d import ObstacleMap, generate_random_obstacles
-from envs.circuit_generator.path_generate import make_track, make_side_lane
+from envs.lane_map_2d import LaneMap
+from envs.circuit_generator.path_generate import make_track, make_side_lane, make_csv_paths
 
 
 
@@ -35,26 +36,48 @@ class RacingEnv:
             self._device = torch.device("cpu")
         self._dtype = dtype
 
+        # u: [accel, steer] (m/s2, rad)
+        self.u_min = torch.tensor([-2.0, -0.7], device=self._device, dtype=self._dtype)
+        self.u_max = torch.tensor([2.0, 0.7], device=self._device, dtype=self._dtype)
+        
+        # model parameters
+        self.L = torch.tensor(1, device=self._device, dtype=self._dtype)
+        self.V_MAX = torch.tensor(8.0, device=self._device, dtype=self._dtype)
+
         # generate reference path
         self.circle_radius = 15
         self.linelength = 20.0
         self.dl = 0.1
-        self.line_width = 3
-        self.line_width_gpu = torch.tensor(self.line_width*0.6, device=self._device, dtype=self._dtype)
-        self._reference_path = make_track(circle_radius=self.circle_radius, linelength=self.linelength, dl=self.dl)
-        self.right_lane, self.left_lane = make_side_lane(self._reference_path, lane_width=self.line_width)
+        self.line_width = 6.5
+        self.line_width_limit = torch.tensor(self.line_width*0.45, device=self._device, dtype=self._dtype)
+        self.racing_center_path, _, _ = make_csv_paths("src/envs/circuit_generator/circuit.csv")
+        self.right_lane, self.left_lane = make_side_lane(self.racing_center_path, lane_width=self.line_width)
+
+        # generate cost maps
+        self.map_size = (80, 80)
+        self.cell_size = 0.1
+
+        # generate lane map
+        self._lane_map = LaneMap(
+            lane=self.racing_center_path,
+            lane_width=self.line_width,
+            map_size=self.map_size,
+            cell_size=self.cell_size,
+            device=self._device,
+            dtype=self._dtype,
+        )
 
         # generate obstacles
         self._obstacle_map = ObstacleMap(
-            map_size=(60, 40), cell_size=0.1, device=self._device, dtype=self._dtype
+            map_size=self.map_size, cell_size=self.cell_size, device=self._device, dtype=self._dtype
         )
         self._seed = seed
 
         generate_random_obstacles(
             obstacle_map=self._obstacle_map,
-            random_x_range=(-30, 30),
-            random_y_range=(-17, 17),
-            num_circle_obs=30,
+            random_x_range=(-38, 38),
+            random_y_range=(-40, 40),
+            num_circle_obs=50,
             radius_range=(1.2, 1.5),
             num_rectangle_obs=10,
             width_range=(1.5, 2.0),
@@ -65,29 +88,22 @@ class RacingEnv:
         self._obstacle_map.convert_to_torch()
 
         self._start_pos = torch.tensor(
-            [self._reference_path[0][0], self._reference_path[0][1]], device=self._device, dtype=self._dtype
+            [self.racing_center_path[0][0], self.racing_center_path[0][1]], device=self._device, dtype=self._dtype
         )
         self._goal_pos = torch.tensor(
-            [self._reference_path[-1][0], self._reference_path[-1][1]], device=self._device, dtype=self._dtype
+            [self.racing_center_path[-1][0], self.racing_center_path[-1][1]], device=self._device, dtype=self._dtype
         )
 
+        # state initialization
         self._robot_state = torch.zeros(4, device=self._device, dtype=self._dtype)
         self._robot_state[:2] = self._start_pos
         self._robot_state[2] = angle_normalize(
             torch.atan2(
-                self._reference_path[1][1] - self._start_pos[1],
-                self._reference_path[1][0] - self._start_pos[0],
+                self.racing_center_path[1][1] - self._start_pos[1],
+                self.racing_center_path[1][0] - self._start_pos[0],
             )
         )
         self._robot_state[3] = 0.0
-
-        # u: [accel, steer] (m/s2, rad)
-        self.u_min = torch.tensor([-2.0, -0.5], device=self._device, dtype=self._dtype)
-        self.u_max = torch.tensor([2.0, 0.5], device=self._device, dtype=self._dtype)
-        
-        # model parameters
-        self.L = torch.tensor(0.5, device=self._device, dtype=self._dtype)
-        self.V_MAX = torch.tensor(8.0, device=self._device, dtype=self._dtype)
 
     def reset(self) -> torch.Tensor:
         """
@@ -98,8 +114,8 @@ class RacingEnv:
         self._robot_state[:2] = self._start_pos
         self._robot_state[2] = angle_normalize(
             torch.atan2(
-                self._reference_path[1][1] - self._start_pos[1],
-                self._reference_path[1][0] - self._start_pos[0],
+                self.racing_center_path[1][1] - self._start_pos[1],
+                self.racing_center_path[1][0] - self._start_pos[0],
             )
         )
         self._robot_state[3] = 0.0
@@ -150,13 +166,16 @@ class RacingEnv:
         self._ax.set_xlabel("x [m]")
         self._ax.set_ylabel("y [m]")
 
+        # lane map (debug)
+        # self._lane_map.render_occupancy(self._ax)
+
         # obstacle map
         self._obstacle_map.render(self._ax, zorder=10)
 
         # reference path
         self._ax.plot(
-            self._reference_path[:, 0],
-            self._reference_path[:, 1],
+            self.racing_center_path[:, 0],
+            self.racing_center_path[:, 1],
             color="gray",
             linestyle="--",
             zorder=5,
@@ -258,7 +277,7 @@ class RacingEnv:
 
         if mode == "human":
             # online rendering
-            plt.pause(0.001)
+            plt.pause(0.0001)
             plt.cla()
         elif mode == "rgb_array":
             # offline rendering for video
@@ -350,18 +369,16 @@ class RacingEnv:
         # lag error of path
         el = -torch.cos(reference_path[t, 2]) * (state[:, 0] - reference_path[t, 0]) - torch.sin(reference_path[t, 2]) * (state[:, 1] - reference_path[t, 1])
 
-        path_cost = 0.4 * ec ** 2 + 0.5 * el ** 2
-        # 経路の範囲外に出た場合のコスト
-        path_cost += 10000 * (ec.abs() > self.line_width_gpu).float()
+        path_cost = 5 * ec ** 2 + 5 * el ** 2
 
+        # compute obstacle cost from cost map
         pos_batch = state[:, :2].unsqueeze(1)  # (batch_size, 1, 2)
-        obstacle_cost = self._obstacle_map.compute_cost(pos_batch).squeeze(
-            1
-        )  # (batch_size,)
+        obstacle_cost = self._obstacle_map.compute_cost(pos_batch).squeeze(1)  # (batch_size,)
+        obstacle_cost += self._lane_map.compute_cost(pos_batch).squeeze(1)
 
         # input cost
         input_cost = 0.01 * action.pow(2).sum(dim=1)
-        input_cost += 0.01 * (action - prev_action).pow(2).sum(dim=1)
+        input_cost += 0.1 * (action - prev_action).pow(2).sum(dim=1)
 
         cost = path_cost + 10000 * obstacle_cost + input_cost
 

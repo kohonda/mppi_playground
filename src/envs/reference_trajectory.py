@@ -4,7 +4,7 @@
 import numpy as np
 
 
-def calc_nearest_index(state, cx, cy, cind, N_IND_SEARCH = 10):
+def calc_nearest_index(state, cx, cy, cind, N_IND_SEARCH = 30):
 
     dx = [state[0] - icx for icx in cx[cind:(cind + N_IND_SEARCH)]]
     dy = [state[1] - icy for icy in cy[cind:(cind + N_IND_SEARCH)]]
@@ -48,6 +48,5 @@ def calc_ref_trajectory(state, path, cind, horizon, DL=0.1, lookahed_distance=1.
             xref[i, 0] = end_travel * np.cos(end_p[2]) + end_p[0]
             xref[i, 1] = end_travel * np.sin(end_p[2]) + end_p[1]
             xref[i, 2] = path[ncourse - 1, 2]
-            xref[i, 3] = 0
 
     return xref, ind

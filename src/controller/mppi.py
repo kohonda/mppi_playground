@@ -75,6 +75,7 @@ class MPPI(nn.Module):
             self._device = torch.device("cuda")
         else:
             self._device = torch.device("cpu")
+        print(f"Device: {self._device}")
         self._dtype = dtype
 
         # set parameters

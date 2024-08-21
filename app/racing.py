@@ -17,8 +17,8 @@ def main(save_mode: bool = False):
 
     # solver
     solver = MPPI(
-        horizon=20,
-        num_samples=4000,
+        horizon=25,
+        num_samples=3000,
         dim_state=4,
         dim_control=2,
         dynamics=env.dynamics,
@@ -33,19 +33,27 @@ def main(save_mode: bool = False):
     state = env.reset()
     max_steps = 500
     average_time = 0
+    was_warm_start = False
+    warm_iter = 10
     current_path_index = 0
     for i in range(max_steps):
         reference_path, current_path_index = calc_ref_trajectory(
-            state, env._reference_path, current_path_index, solver._horizon, DL=0.1, lookahed_distance=1.0, reference_path_interval=0.85
+            state, env.racing_center_path, current_path_index, solver._horizon, DL=0.1, lookahed_distance=4, reference_path_interval=0.85
         )
         start = time.time()
-        # reference_pathをdict形式に変換
+        # reference_path
         ref = {
             "reference_path": reference_path,
         }
-        action_seq, state_seq = solver.forward(state=state, info=ref)
+        if not was_warm_start:
+            for _ in range(warm_iter):
+                action_seq, state_seq = solver.forward(state=state, info=ref)
+            was_warm_start = True
+        else:   
+            action_seq, state_seq = solver.forward(state=state, info=ref)
         end = time.time()
-        average_time += (end - start) / max_steps
+        solve_time = end - start
+        print("solve time: {}".format(solve_time * 1000), " [ms]")
 
         state, is_goal_reached = env.step(action_seq[0, :])
 
