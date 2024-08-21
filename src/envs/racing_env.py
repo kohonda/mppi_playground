@@ -16,7 +16,7 @@ from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 from envs.obstacle_map_2d import ObstacleMap, generate_random_obstacles
 from envs.lane_map_2d import LaneMap
-from envs.circuit_generator.path_generate import make_track, make_side_lane, make_csv_paths
+from envs.circuit_generator.path_generate import make_side_lane, make_csv_paths
 
 
 
@@ -49,25 +49,24 @@ class RacingEnv:
         self.linelength = 20.0
         self.dl = 0.1
         self.line_width = 6.5
-        self.line_width_limit = torch.tensor(self.line_width*0.45, device=self._device, dtype=self._dtype)
         self.racing_center_path, _, _ = make_csv_paths("src/envs/circuit_generator/circuit.csv")
         self.right_lane, self.left_lane = make_side_lane(self.racing_center_path, lane_width=self.line_width)
 
-        # generate cost maps
+        # generate cost maps (1: lane, 2: obstacle)
         self.map_size = (80, 80)
         self.cell_size = 0.1
 
-        # generate lane map
+        # 1: generate lane map
         self._lane_map = LaneMap(
             lane=self.racing_center_path,
-            lane_width=self.line_width,
+            lane_width=self.line_width*0.8,
             map_size=self.map_size,
             cell_size=self.cell_size,
             device=self._device,
             dtype=self._dtype,
         )
 
-        # generate obstacles
+        # 2: generate obstacles
         self._obstacle_map = ObstacleMap(
             map_size=self.map_size, cell_size=self.cell_size, device=self._device, dtype=self._dtype
         )
@@ -75,11 +74,11 @@ class RacingEnv:
 
         generate_random_obstacles(
             obstacle_map=self._obstacle_map,
-            random_x_range=(-38, 38),
-            random_y_range=(-40, 40),
+            random_x_range=(-35, 35),
+            random_y_range=(-35, 35),
             num_circle_obs=50,
-            radius_range=(1.2, 1.5),
-            num_rectangle_obs=10,
+            radius_range=(0.9, 1.2),
+            num_rectangle_obs=0,
             width_range=(1.5, 2.0),
             height_range=(1.5, 2.0),
             max_iteration=1000,
@@ -146,11 +145,10 @@ class RacingEnv:
         ).squeeze(0)
 
         # goal check
-        # goal_threshold = 0.5
-        # is_goal_reached = (
-        #     torch.norm(self._robot_state[:2] - self._goal_pos) < goal_threshold
-        # )
-        is_goal_reached = False
+        goal_threshold = 1.0
+        is_goal_reached = (
+            torch.norm(self._robot_state[:2] - self._goal_pos) < goal_threshold
+        )
 
         return self._robot_state, is_goal_reached
 
@@ -275,6 +273,11 @@ class RacingEnv:
                 zorder=2,
             )
 
+        # state information
+        self._ax.set_title(
+            f"v: {robot_v:.2f} m/s, accel: {accel:.2f} m/s2, steer: {steer:.2f} rad"
+        )
+
         if mode == "human":
             # online rendering
             plt.pause(0.0001)
@@ -349,41 +352,6 @@ class RacingEnv:
         result = torch.cat([clamped_x, clamped_y, new_theta, clamped_v], dim=1)
 
         return result
-
-    def cost_function(self, state: torch.Tensor, action: torch.Tensor, info: dict) -> torch.Tensor:
-        """
-        Calculate cost function
-        Args:
-            state (torch.Tensor): state batch tensor, shape (batch_size, 4) [x, y, theta, v]
-            action (torch.Tensor): control batch tensor, shape (batch_size, 2) [accel, steer]
-        Returns:
-            torch.Tensor: shape (batch_size,)
-        """
-
-        reference_path = torch.from_numpy(info["reference_path"]).to(self._device, self._dtype)
-        prev_action = info["prev_action"]
-        t = info["t"] # horizon number
-
-        # contouring error of path
-        ec = torch.sin(reference_path[t, 2]) * (state[:, 0] - reference_path[t, 0]) - torch.cos(reference_path[t, 2]) * (state[:, 1] - reference_path[t, 1])
-        # lag error of path
-        el = -torch.cos(reference_path[t, 2]) * (state[:, 0] - reference_path[t, 0]) - torch.sin(reference_path[t, 2]) * (state[:, 1] - reference_path[t, 1])
-
-        path_cost = 5 * ec ** 2 + 5 * el ** 2
-
-        # compute obstacle cost from cost map
-        pos_batch = state[:, :2].unsqueeze(1)  # (batch_size, 1, 2)
-        obstacle_cost = self._obstacle_map.compute_cost(pos_batch).squeeze(1)  # (batch_size,)
-        obstacle_cost += self._lane_map.compute_cost(pos_batch).squeeze(1)
-
-        # input cost
-        input_cost = 0.01 * action.pow(2).sum(dim=1)
-        input_cost += 0.1 * (action - prev_action).pow(2).sum(dim=1)
-
-        cost = path_cost + 10000 * obstacle_cost + input_cost
-
-        return cost
-
 
     def collision_check(self, state: torch.Tensor) -> torch.Tensor:
         """
