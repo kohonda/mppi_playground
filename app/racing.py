@@ -10,6 +10,8 @@ import tqdm
 
 from controller.mppi import MPPI
 from envs.racing_env import RacingEnv
+from envs.obstacle_map_2d import ObstacleMap
+from envs.lane_map_2d import LaneMap
 
 class racing_controller:
     def __init__(self, env, debug=False, device=torch.device("cuda"), dtype=torch.float32) -> None:
@@ -52,8 +54,8 @@ class racing_controller:
 
         # reference indformation (tensor)
         self.reference_path: torch.Tensor = None
-        self.obstacle_map: torch.Tensor = None
-        self.lane_map: torch.Tensor = None
+        self.obstacle_map: ObstacleMap = None
+        self.lane_map: LaneMap = None
 
     def update(self, state: torch.Tensor, racing_center_path: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -87,7 +89,7 @@ class racing_controller:
     def get_top_samples(self, num_samples = 300) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.solver.get_top_samples(num_samples=num_samples)
     
-    def set_cost_map(self, obstacle_map: torch.Tensor, lane_map: torch.Tensor) -> None:
+    def set_cost_map(self, obstacle_map: ObstacleMap, lane_map: LaneMap) -> None:
         self.obstacle_map = obstacle_map
         self.lane_map = lane_map
 
@@ -177,7 +179,7 @@ class racing_controller:
         return xref, ind
 
 
-def main(save_mode: bool = True):
+def main(save_mode: bool = False):
     env = RacingEnv()
 
     # controller
