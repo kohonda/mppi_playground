@@ -37,20 +37,20 @@ class RacingEnv:
         self._dtype = dtype
 
         # u: [accel, steer] (m/s2, rad)
-        self.u_min = torch.tensor([-2.0, -0.7], device=self._device, dtype=self._dtype)
-        self.u_max = torch.tensor([2.0, 0.7], device=self._device, dtype=self._dtype)
+        self.u_min = torch.tensor([-2.0, -0.25], device=self._device, dtype=self._dtype)
+        self.u_max = torch.tensor([2.0, 0.25], device=self._device, dtype=self._dtype)
         
         # model parameters
         self.L = torch.tensor(1, device=self._device, dtype=self._dtype)
         self.V_MAX = torch.tensor(8.0, device=self._device, dtype=self._dtype)
 
         # generate reference path
-        self.circle_radius = 15
-        self.linelength = 20.0
         self.dl = 0.1
         self.line_width = 6.5
-        self.racing_center_path, _, _ = make_csv_paths("src/envs/circuit_generator/circuit.csv")
-        self.right_lane, self.left_lane = make_side_lane(self.racing_center_path, lane_width=self.line_width)
+        racing_center_path, _, _ = make_csv_paths("src/envs/circuit_generator/circuit.csv")
+        self.right_lane, self.left_lane = make_side_lane(racing_center_path, lane_width=self.line_width)
+        # numpy array to tensor
+        self.racing_center_path = torch.tensor(racing_center_path, device=self._device, dtype=self._dtype)
 
         # generate cost maps (1: lane, 2: obstacle)
         self.map_size = (80, 80)
@@ -58,7 +58,7 @@ class RacingEnv:
 
         # 1: generate lane map
         self._lane_map = LaneMap(
-            lane=self.racing_center_path,
+            lane=racing_center_path,
             lane_width=self.line_width*0.8,
             map_size=self.map_size,
             cell_size=self.cell_size,
@@ -158,9 +158,20 @@ class RacingEnv:
         predicted_trajectory: torch.Tensor = None,
         is_collisions: torch.Tensor = None,
         top_samples: Tuple[torch.Tensor, torch.Tensor] = None,
-        reference_trajectory: np.ndarray = None,
+        reference_trajectory: torch.Tensor = None,
         mode: str = "human",
     ) -> None:
+        """
+        Render environment.
+        Args:
+            action (torch.Tensor): control tensor, shape (2,) [accel, steer]
+            predicted_trajectory (torch.Tensor): shape (1, traj_size, 2)
+            is_collisions (torch.Tensor): shape (traj_size,)
+            top_samples (Tuple[torch.Tensor, torch.Tensor]): Tuple of top samples and weights
+            reference_trajectory (torch.Tensor): shape (traj_size, 2)
+            mode (str): rendering mode ["human", "rgb_array"]
+        """
+
         self._ax.set_xlabel("x [m]")
         self._ax.set_ylabel("y [m]")
 
@@ -297,7 +308,7 @@ class RacingEnv:
 
             if not os.path.exists("video"):
                 os.mkdir("video")
-            path = "video/" + "navigation_2d_" + str(self._seed) + ".gif"
+            path = "video/" + "racing_" + str(self._seed) + ".gif"
 
         if len(self._rendered_frames) > 0:
             # save animation

@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from scipy.spatial import KDTree
+from typing import Tuple
 
 import time
 
@@ -12,14 +12,15 @@ from controller.mppi import MPPI
 from envs.racing_env import RacingEnv
 
 class racing_controller:
-    def __init__(self, env, debug=False, device=torch.device("cuda"), dtype=torch.float32):
+    def __init__(self, env, debug=False, device=torch.device("cuda"), dtype=torch.float32) -> None:
+        
         self.debug = debug
         self.current_path_index = 0
 
         # solver
         self.solver = MPPI(
             horizon=25,
-            num_samples=3000,
+            num_samples=4000,
             dim_state=4,
             dim_control=2,
             dynamics=env.dynamics,
@@ -30,6 +31,17 @@ class racing_controller:
             lambda_=1.0,
             auto_lambda=False,
         )
+
+        # config
+        self.env = env
+
+        # cost weights
+        self.Qc = 2.0  # contouring error cost
+        self.Ql = 3.0  # lag error cost
+        self.Qv = 2.0  # velocity cost
+        self.Qo = 10000.0  # obstacle cost
+        self.Qin = 0.01  # input cost
+        self.Qdin = 0.5  # differential input cost
 
         # device and dtype
         if torch.cuda.is_available() and device == torch.device("cuda"):
@@ -43,12 +55,20 @@ class racing_controller:
         self.obstacle_map: torch.Tensor = None
         self.lane_map: torch.Tensor = None
 
-    def update(self, state, racing_center_path):
+    def update(self, state: torch.Tensor, racing_center_path: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Update the controller with the current state and reference path.
+        Args:
+            state (torch.Tensor): current state of the vehicle, shape (4,) [x, y, yaw, v]
+            racing_center_path (torch.Tensor): racing center path, shape (N, 3) [x, y, yaw]
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: action sequence tensor, shape (horizon, 2) [accel, steer], state sequence tensor, shape (horizon + 1, 4) [x, y, yaw, v]
+        """
+
         # reference
-        reference_path_np, self.current_path_index = self.calc_ref_trajectory(
+        self.reference_path, self.current_path_index = self.calc_ref_trajectory(
             state, racing_center_path, self.current_path_index, self.solver._horizon, DL=0.1, lookahead_distance=3, reference_path_interval=0.85
         )
-        self.reference_path = torch.from_numpy(reference_path_np).to(self._device, self._dtype)
 
         if self.reference_path is None and self.obstacle_map is None and self.lane_map is None:
             raise ValueError("reference path, obstacle map, and lane map must be set before calling solve method.")
@@ -64,10 +84,10 @@ class racing_controller:
 
         return action_seq, state_seq
     
-    def get_top_samples(self, num_samples=300):
+    def get_top_samples(self, num_samples = 300) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.solver.get_top_samples(num_samples=num_samples)
     
-    def set_cost_map(self, obstacle_map, lane_map):
+    def set_cost_map(self, obstacle_map: torch.Tensor, lane_map: torch.Tensor) -> None:
         self.obstacle_map = obstacle_map
         self.lane_map = lane_map
 
@@ -81,63 +101,61 @@ class racing_controller:
             torch.Tensor: shape (batch_size,)
         """
         # info
-        # reference_path = torch.from_numpy(info["reference_path"]).to(self._device, self._dtype)
         prev_action = info["prev_action"]
         t = info["t"] # horizon number
 
         # path cost
         # contouring and lag error of path
-        ec = torch.sin(self.reference_path[t, 2]) * (state[:, 0] - self.reference_path[t, 0]) - torch.cos(self.reference_path[t, 2]) * (state[:, 1] - self.reference_path[t, 1])
-        el = -torch.cos(self.reference_path[t, 2]) * (state[:, 0] - self.reference_path[t, 0]) - torch.sin(self.reference_path[t, 2]) * (state[:, 1] - self.reference_path[t, 1])
+        ec = torch.sin(self.reference_path[t, 2]) * (state[:, 0] - self.reference_path[t, 0]) \
+            -torch.cos(self.reference_path[t, 2]) * (state[:, 1] - self.reference_path[t, 1])
+        el = -torch.cos(self.reference_path[t, 2]) * (state[:, 0] - self.reference_path[t, 0]) \
+             -torch.sin(self.reference_path[t, 2]) * (state[:, 1] - self.reference_path[t, 1])
 
-        path_cost = 5 * ec ** 2 + 10 * el ** 2
+        path_cost = self.Qc * ec.pow(2) + self.Ql * el.pow(2)
+
+        # velocity cost
+        v = state[:, 3]
+        v_target = self.reference_path[t, 3]
+        velocity_cost = self.Qv * (v - v_target).pow(2)
 
         # compute obstacle cost from cost map
         pos_batch = state[:, :2].unsqueeze(1)  # (batch_size, 1, 2)
         obstacle_cost = self.obstacle_map.compute_cost(pos_batch).squeeze(1)  # (batch_size,)
         obstacle_cost += self.lane_map.compute_cost(pos_batch).squeeze(1)
+        obstacle_cost = self.Qo * obstacle_cost
 
         # input cost
-        input_cost = 0.01 * action.pow(2).sum(dim=1)
-        input_cost += 0.5 * (action - prev_action).pow(2).sum(dim=1)
+        input_cost = self.Qin * action.pow(2).sum(dim=1)
+        input_cost += self.Qdin * (action - prev_action).pow(2).sum(dim=1)
 
-        cost = path_cost + 10000 * obstacle_cost + input_cost
+        cost = path_cost + velocity_cost + obstacle_cost + input_cost
 
         return cost
     
-    def calc_ref_trajectory(self, state, path, cind, horizon, DL=0.1, lookahead_distance=1.0, reference_path_interval=0.5):
+    def calc_ref_trajectory(self, state: torch.Tensor, path: torch.Tensor, 
+                            cind: int, horizon: int, DL=0.1, lookahead_distance=1.0, reference_path_interval=0.5
+                            ) -> Tuple[torch.Tensor, int]:
         """
         Calculate the reference trajectory for the vehicle.
 
-        Parameters:
-        state : array-like
-            The current state of the vehicle [x, y, yaw].
-        path : array-like
-            The global path [x, y, yaw] for the vehicle to follow.
-        cind : int
-            The current index on the path.
-        horizon : int
-            The number of points in the horizon.
-        DL : float, optional
-            The distance between points on the path.
-        lookahead_distance : float, optional
-            The initial lookahead distance.
-        reference_path_interval : float, optional
-            The distance between reference points on the path.
+        Args:
+            state (torch.Tensor): current state of the vehicle, shape (4,) [x, y, yaw, v]
+            path (torch.Tensor): reference path, shape (N, 3) [x, y, yaw]
+            cind (int): current index of the vehicle on the path
+            horizon (int): prediction horizon
+            DL (float): resolution of the path
+            lookahead_distance (float): distance to look ahead
+            reference_path_interval (float): interval of the reference path
 
         Returns:
-        xref : array-like
-            The reference trajectory [x, y, yaw] for the vehicle.
+            Tuple[torch.Tensor, int]: reference trajectory tensor, shape (horizon + 1, 4) [x, y, yaw, target_v], index of the vehicle on the path
         """
 
         ncourse = len(path)
-        npath_state = path.shape[1]
-        xref = np.zeros((horizon + 1, npath_state))
+        xref = torch.zeros((horizon + 1, state.shape[0]), dtype=state.dtype, device=state.device)
 
-        # Calculate the nearest index using KD-Tree
-        tree = KDTree(path[:, :2])
-        _, ind = tree.query(state[:2])
-
+        # Calculate the nearest index to the vehicle
+        ind = min(range(len(path)), key=lambda i: np.hypot(path[i, 0] - state[0].item(), path[i, 1] - state[1].item()))
         # Ensure the index is not less than the current index
         ind = max(cind, ind)
 
@@ -149,14 +167,17 @@ class racing_controller:
             dind = int(round(travel / DL))
 
             if (ind + dind) < ncourse:
-                xref[i] = path[ind + dind]
+                xref[i, :3] = path[ind + dind]
+                xref[i, 3] = self.env.V_MAX
             else:
-                xref[i] = path[-1]
+                xref[i, :3] = path[-1]
+                # set the target velocity to zero if the vehicle reaches the end of the path
+                xref[:, 3] = 0.0
 
         return xref, ind
 
 
-def main(save_mode: bool = False):
+def main(save_mode: bool = True):
     env = RacingEnv()
 
     # controller

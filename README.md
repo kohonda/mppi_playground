@@ -80,6 +80,14 @@ python3 app/navigation2d.py
   <img src="./media/navigation_2d.gif" width="500" alt="navigation2d">
 </p>
 
+### Racing
+```bash
+python3 app/racing.py
+```
+<p align="center">
+  <img src="./media/racing.gif" width="500" alt="racing">
+</p>
+
 ### Pendulum
 ```bash
 python3 app/pendulum.py
