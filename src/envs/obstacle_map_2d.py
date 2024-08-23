@@ -144,10 +144,10 @@ class ObstacleMap:
         height_occ = ceil(height / self._cell_size)
 
         # add to occ map
-        x_init = center_occ[0] - ceil(height_occ / 2)
-        x_end = center_occ[0] + ceil(height_occ / 2)
-        y_init = center_occ[1] - ceil(width_occ / 2)
-        y_end = center_occ[1] + ceil(width_occ / 2)
+        x_init = center_occ[0] - ceil(width_occ / 2)
+        x_end = center_occ[0] + ceil(width_occ / 2)
+        y_init = center_occ[1] - ceil(height_occ / 2)
+        y_end = center_occ[1] + ceil(height_occ / 2)
 
         # # deal with out of bound
         x_init = np.clip(x_init, 0, self._map.shape[0] - 1)
