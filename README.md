@@ -88,6 +88,8 @@ python3 app/racing.py
   <img src="./media/racing.gif" width="500" alt="racing">
 </p>
 
+[circuit course information (Japan Automotive AI Challenge 2024)](https://github.com/AutomotiveAIChallenge/aichallenge-2024)
+
 ### Pendulum
 ```bash
 python3 app/pendulum.py
