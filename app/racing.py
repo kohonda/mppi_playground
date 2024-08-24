@@ -157,7 +157,7 @@ class racing_controller:
         xref = torch.zeros((horizon + 1, state.shape[0]), dtype=state.dtype, device=state.device)
 
         # Calculate the nearest index to the vehicle
-        ind = min(range(len(path)), key=lambda i: np.hypot(path[i, 0] - state[0].item(), path[i, 1] - state[1].item()))
+        ind = min(range(len(path)), key=lambda i: np.hypot(path[i, 0].cpu().numpy() - state[0].cpu().numpy(), path[i, 1].cpu().numpy() - state[1].cpu().numpy()))
         # Ensure the index is not less than the current index
         ind = max(cind, ind)
 

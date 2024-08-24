@@ -183,8 +183,8 @@ class RacingEnv:
 
         # reference path
         self._ax.plot(
-            self.racing_center_path[:, 0],
-            self.racing_center_path[:, 1],
+            self.racing_center_path[:, 0].cpu().numpy(),
+            self.racing_center_path[:, 1].cpu().numpy(),
             color="gray",
             linestyle="--",
             zorder=5,
@@ -207,8 +207,8 @@ class RacingEnv:
         # reference trajectory
         if reference_trajectory is not None:
             self._ax.plot(
-                reference_trajectory[:, 0],
-                reference_trajectory[:, 1],
+                reference_trajectory[:, 0].cpu().numpy(),
+                reference_trajectory[:, 1].cpu().numpy(),
                 color="red",
                 linestyle="dotted",
                 zorder=5,
