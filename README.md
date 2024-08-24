@@ -80,6 +80,16 @@ python3 app/navigation2d.py
   <img src="./media/navigation_2d.gif" width="500" alt="navigation2d">
 </p>
 
+### Racing
+```bash
+python3 app/racing.py
+```
+<p align="center">
+  <img src="./media/racing.gif" width="500" alt="racing">
+</p>
+
+[circuit course information (Japan Automotive AI Challenge 2024)](https://github.com/AutomotiveAIChallenge/aichallenge-2024)
+
 ### Pendulum
 ```bash
 python3 app/pendulum.py
