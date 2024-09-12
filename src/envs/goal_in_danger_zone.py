@@ -82,7 +82,7 @@ class GoalInDangerZoneEnv(gym.Env):
 
         self._dt = 0.1
 
-        self.max_episode_steps = 300
+        self.max_episode_steps = 100
 
         self.action_space = spaces.Box(
             low=np.array([self._v_min, self._omega_min]),
@@ -137,17 +137,25 @@ class GoalInDangerZoneEnv(gym.Env):
     def parallel_cost(
         self, obs: torch.Tensor, action: torch.Tensor, info: dict
     ) -> torch.Tensor:
+        prev_vec_to_goal = info["prev_state"][:, 3:5]
         vec_to_goal = obs[:, 3:5]
         vec_to_center = obs[:, 5:7]
 
-        cost = torch.norm(vec_to_goal, dim=-1)
+        dist_to_goal = torch.norm(vec_to_goal, dim=-1)
+        # minimize the distance to the goal
+        cost = dist_to_goal
+
+        # maximize the difference between the distance to the goal
+        # prev_dist_to_goal = torch.norm(prev_vec_to_goal, dim=-1)
+        # cost = dist_to_goal - prev_dist_to_goal
+
         is_collided = torch.norm(vec_to_center, dim=-1) < self._danger_zone.radius
         cost += is_collided.float() * 1000
 
         return cost
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, dict]:
-
+        prev_pos = self._pos.copy()
         self._v = np.clip(action[0], self._v_min, self._v_max)
         self._omega = np.clip(action[1], self._omega_min, self._omega_max)
 
@@ -161,10 +169,12 @@ class GoalInDangerZoneEnv(gym.Env):
         np_angle = np.array([self._angle])
         obs = np.concatenate([self._pos, np_angle, vec_to_goal, vec_to_center])
 
+        prev_distance_to_goal = np.linalg.norm(prev_pos - self._goal)
         distance_to_goal = np.linalg.norm(self._pos - self._goal)
 
         is_collided = self._danger_zone.is_inside(self._pos)
-        reward = -distance_to_goal
+        reward = float(prev_distance_to_goal - distance_to_goal)
+        # reward = -distance_to_goal
         cost = float(is_collided)
 
         # is_goal_reached = distance_to_goal < 0.1
@@ -211,12 +221,7 @@ class GoalInDangerZoneEnv(gym.Env):
         self._predicted_trajectory = predicted_trajectory
         self._top_samples = top_samples
 
-    def render(
-        self,
-        # is_collision: bool = False,
-        # predicted_trajectory: np.ndarray = None,
-        # top_samples: Tuple[np.ndarray, np.ndarray] = None,
-    ) -> Optional[np.ndarray]:
+    def render(self) -> Optional[np.ndarray]:
         if self.render_mode is None:
             assert self.spec is not None
             gym.logger.warn(

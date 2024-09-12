@@ -4,14 +4,19 @@ import os
 
 import fire
 import tqdm
-
+import random
+import numpy as np
 import gymnasium as gym
 from controller.mppi import MPPI
 from envs.goal_in_danger_zone import GoalInDangerZoneEnv
 
 
 def main(save_mode: bool = False):
-    seed = 10
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
     if save_mode:
         video_dir = "videos"
         if not os.path.exists(video_dir):
