@@ -2,7 +2,7 @@
 This repository contains an implementation of [Model Predictive Path Integral Control (MPPI)](https://arxiv.org/abs/1707.02342) with PyTorch to accelerate computations on the GPU.
 
 ## Tested Native Environment
-- Ubuntu Focal 20.04 (LTS)
+- Ubuntu Focal 20.04 and 22.04
 - NVIDIA Driver 510 or later due to PyTorch 2.x (optional for GPU acceleration)
 
 ## Dependencies
