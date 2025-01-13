@@ -11,11 +11,15 @@
         "ms-python.vscode-pylance",
         "GitHub.copilot",
         "ms-python.black-formatter",
-        "ms-python.flake8",
+        "ms-python.flake8"
     ],
     "runArgs": [
         "--gpus", "all",
         "--shm-size", "10G",
-        "-e", "LIBGL_ALWAYS_SOFTWARE=1"
+        "-e", "LIBGL_ALWAYS_SOFTWARE=1",
+        "-e", "DISPLAY=${localEnv:DISPLAY}",
+        "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
+        "-v", "${localWorkspaceFolder}:/workspace/${localWorkspaceFolderBasename}",
+        "-p", "5900:5900"
     ]
 }

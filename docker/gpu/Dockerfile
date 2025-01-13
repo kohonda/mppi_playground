@@ -1,5 +1,14 @@
 FROM nvidia/cuda:11.8.0-devel-ubuntu20.04
 ENV DEBIAN_FRONTEND=noninteractive
+ENV __NV_PRIME_RENDER_OFFLOAD=1
+ENV __GLX_VENDOR_LIBRARY_NAME=nvidia
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=all
+## For smooth installation
+ENV DEBCONF_NOWARNINGS=yes
+## For avoiding error (Ref: https://github.com/Genesis-Embodied-AI/Genesis/issues/37)
+ENV PYOPENGL_PLATFORM=mesa
+
 
 RUN apt-get -y update && apt-get -y install --no-install-recommends\
     software-properties-common\
@@ -66,5 +75,6 @@ COPY src/ src/
 COPY pyproject.toml .
 
 RUN pip3 install -e .[dev]
+
 
 CMD ["bash"]
