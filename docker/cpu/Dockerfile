@@ -59,7 +59,7 @@ RUN mkdir -p /root/.mujoco \
     && wget https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz -O mujoco.tar.gz \
     && tar -xf mujoco.tar.gz -C /root/.mujoco \
     && rm mujoco.tar.gz
-ENV LD_LIBRARY_PATH /root/.mujoco/mujoco210/bin:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=/root/.mujoco/mujoco210/bin:${LD_LIBRARY_PATH}
 
 WORKDIR /workspace
 COPY src/ src/

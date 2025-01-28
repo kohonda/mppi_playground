@@ -30,12 +30,14 @@ def main(save_mode: bool = False):
 
     state = env.reset()
     max_steps = 500
-    average_time = 0
+    total_time = 0.0
+    step_count = 0
     for i in range(max_steps):
         start = time.time()
         action_seq, state_seq = solver.forward(state=state)
         end = time.time()
-        average_time += (end - start) / max_steps
+        total_time += end - start
+        step_count += 1
 
         state, is_goal_reached = env.step(action_seq[0, :])
 
@@ -66,7 +68,8 @@ def main(save_mode: bool = False):
             print("Goal Reached!")
             break
 
-    print("average solve time: {}".format(average_time * 1000), " [ms]")
+    average_time = total_time / step_count
+    print("average solve time: {:.3f} ms".format(average_time * 1000))
     env.close()  # close window and save video if save_mode is True
 
 
