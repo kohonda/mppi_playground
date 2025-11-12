@@ -114,5 +114,18 @@ python3 app/mountaincar.py
   <img src="./media/mountaincar.gif" width="500" alt="mountaincar">
 </p>
 
+## Citation
+
+If you use this repo in your work, please cite this paper (https://arxiv.org/abs/2511.08019) as:
+
+```
+@article{honda2025model,
+  title={Model Predictive Control via Probabilistic Inference: A Tutorial},
+  author={Honda, Kohei},
+  journal={arXiv preprint arXiv:2511.08019},
+  year={2025}
+}
+```
+
 ## Reference
 - [pytorch_mppi](https://github.com/UM-ARM-Lab/pytorch_mppi)
