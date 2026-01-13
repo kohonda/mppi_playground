@@ -4,12 +4,13 @@ Kohei Honda, 2024
 
 from __future__ import annotations
 
-from typing import Tuple, Optional
-from matplotlib import pyplot as plt
-import numpy as np
+from typing import Optional, Tuple
+
 import gymnasium as gym
-from gymnasium import spaces
+import numpy as np
 import torch
+from gymnasium import spaces
+from matplotlib import pyplot as plt
 
 
 class DangerZone:
@@ -137,7 +138,7 @@ class GoalInDangerZoneEnv(gym.Env):
     def parallel_cost(
         self, obs: torch.Tensor, action: torch.Tensor, info: dict
     ) -> torch.Tensor:
-        prev_vec_to_goal = info["prev_state"][:, 3:5]
+        # prev_vec_to_goal = info["prev_state"][:, 3:5]
         vec_to_goal = obs[:, 3:5]
         vec_to_center = obs[:, 5:7]
 

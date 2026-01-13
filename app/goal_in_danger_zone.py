@@ -1,14 +1,14 @@
-import torch
-
 import os
+import random
 
 import fire
-import tqdm
-import random
-import numpy as np
 import gymnasium as gym
-from controller.mppi import MPPI
+import numpy as np
+import torch
+import tqdm
+
 from envs.goal_in_danger_zone import GoalInDangerZoneEnv
+from mppi_playground import MPPI
 
 
 def main(save_mode: bool = False):

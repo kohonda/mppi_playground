@@ -1,32 +1,42 @@
 [build-system]
 requires = ["setuptools>=64", "wheel"]
-build-backend = 'setuptools.build_meta'
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [project]
 name = "mppi_playground"
 version = "0.1.0"
-description = ""
-requires-python = ">=3.10"
+description = "PyTorch implementation of Model Predictive Path Integral (MPPI) Control with GPU acceleration"
+requires-python = ">=3.10,<3.14"
 dependencies = [
-    "pandas==2.2.2",
-    "matplotlib==3.8.2",
-    "fire==0.5.0",
-    "numpy==1.26.2",
-    "torch>=2.00",
-    "gymnasium[all]==0.29.1",
-    "mujoco==2.3.7",
-    # "pybullet==3.2.5",
+    "torch>=2.5.0",
 ]
 
 [project.optional-dependencies]
+example = [
+    "fire>=0.7.1",
+    "gymnasium[all]>=1.2.3",
+    "matplotlib>=3.10.8",
+    "moviepy>=2.2.1",
+    "mujoco>=3.4.0",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "pyqt5>=5.15.11",
+    "tqdm>=4.67.1",
+]
+
 dev = [
-    "pytest",
-    "pysen",
-    "black",
-    "flake8",
-    "isort",
-    "mypy",
+    "pre-commit>=4.2.0",
+    "clang-format>=19.1.6,<20",
+    "black>=25.1.0",
+    "flake8>=7.2.0",
+    "isort>=6.0.1",
+    "mypy>=1.15.0",
+    "pysen>=0.11.0",
+    "pytest>=8.3.5",
 ]

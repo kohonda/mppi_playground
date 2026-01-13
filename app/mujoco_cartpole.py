@@ -1,11 +1,10 @@
+import time
+
+import fire
+import gymnasium as gym
 import torch
 
-import time
-import gymnasium as gym
-import fire
-import numpy as np
-
-from controller.mppi import MPPI
+from mppi_playground import MPPI
 
 
 @torch.jit.script
@@ -69,7 +68,7 @@ def main(save_mode: bool = False):
 
     def cost_func(state: torch.Tensor, action: torch.Tensor, info) -> torch.Tensor:
         x = state[:, 0]
-        x_dt = state[:, 1]
+        # x_dt = state[:, 1]
         theta = state[:, 2]
         theta_dt = state[:, 3]
 
@@ -78,7 +77,6 @@ def main(save_mode: bool = False):
         cost = normlized_theta**2 + 0.1 * theta_dt**2 + 0.1 * x**2
 
         return cost
-
 
     # simulator
     if save_mode:
@@ -117,7 +115,7 @@ def main(save_mode: bool = False):
         average_time = i / (i + 1) * average_time + elipsed_time / (i + 1)
 
         action_seq_np = action_seq.cpu().numpy()
-        state_seq_np = state_seq.cpu().numpy()
+        # state_seq_np = state_seq.cpu().numpy()
 
         # update simulator
         observation, reward, terminated, truncated, info = env.step(action_seq_np[0, :])

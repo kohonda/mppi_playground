@@ -1,13 +1,12 @@
-import torch
-
 import time
 
 # import gymnasium
 import fire
+import torch
 import tqdm
 
-from controller.mppi import MPPI
 from envs.navigation_2d import Navigation2DEnv
+from mppi_playground import MPPI
 
 
 def main(save_mode: bool = False):

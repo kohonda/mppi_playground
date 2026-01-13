@@ -1,6 +1,6 @@
 {
-    "name": "dev-cpu",
-    "dockerFile": "../../docker/cpu/Dockerfile",
+    "name": "dev-gpu",
+    "dockerFile": "../docker/gpu/Dockerfile",
     "context": "../../",
     "settings": {
         "terminal.integrated.shell.linux": "/bin/bash"
@@ -14,6 +14,7 @@
         "ms-python.flake8",
     ],
     "runArgs": [
+        "--gpus", "all",
         "--shm-size", "10G",
         "-e", "LIBGL_ALWAYS_SOFTWARE=1"
     ]

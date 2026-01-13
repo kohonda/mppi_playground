@@ -4,7 +4,8 @@ Kohei Honda, 2023.
 
 from __future__ import annotations
 
-from typing import Callable, Tuple, Dict
+from typing import Callable, Dict, Tuple
+
 import torch
 import torch.nn as nn
 from torch.distributions.multivariate_normal import MultivariateNormal
@@ -75,7 +76,6 @@ class MPPI(nn.Module):
             self._device = torch.device("cuda")
         else:
             self._device = torch.device("cpu")
-        print(f"Device: {self._device}")
         self._dtype = dtype
 
         # set parameters

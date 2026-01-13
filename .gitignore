@@ -162,3 +162,7 @@ cython_debug/
 
 # project specific
 video/
+
+# claude
+CLAUDE.md
+.claude/

@@ -1,10 +1,10 @@
+import time
+
+import fire
+import gymnasium
 import torch
 
-import time
-import gymnasium
-import fire
-
-from controller.mppi import MPPI
+from mppi_playground import MPPI
 
 
 @torch.jit.script
@@ -19,15 +19,18 @@ def main(save_mode: bool = False):
         # dynamics from gymnasium
         th = state[:, 0].view(-1, 1)
         thdot = state[:, 1].view(-1, 1)
-        g = 10
-        m = 1
-        l = 1
+        gravity = 10
+        mass = 1
+        length = 1
         dt = 0.05
         u = action[:, 0].view(-1, 1)
         u = torch.clamp(u, -2, 2)
         newthdot = (
             thdot
-            + (-3 * g / (2 * l) * torch.sin(th + torch.pi) + 3.0 / (m * l**2) * u)
+            + (
+                -3 * gravity / (2 * length) * torch.sin(th + torch.pi)
+                + 3.0 / (mass * length**2) * u
+            )
             * dt
         )
         newth = th + newthdot * dt
@@ -76,7 +79,7 @@ def main(save_mode: bool = False):
         average_time = i / (i + 1) * average_time + elipsed_time / (i + 1)
 
         action_seq_np = action_seq.cpu().numpy()
-        state_seq_np = state_seq.cpu().numpy()
+        # state_seq_np = state_seq.cpu().numpy()
 
         # update simulator
         observation, reward, terminated, truncated, info = env.step(action_seq_np[0, :])

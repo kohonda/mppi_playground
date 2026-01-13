@@ -4,12 +4,13 @@ Kohei Honda, 2023.
 
 from __future__ import annotations
 
-from typing import Callable, Tuple, List, Union
 from dataclasses import dataclass
 from math import ceil
-from matplotlib import pyplot as plt
-import torch
+from typing import List, Tuple
+
 import numpy as np
+import torch
+from matplotlib import pyplot as plt
 
 
 @dataclass

@@ -1,5 +1,6 @@
-import torch
 import time
+
+import torch
 
 
 # torch complie is not supported for python 3.11 yet

@@ -9,13 +9,12 @@ pip3 install brax
 
 # How to run
 # https://tech.yellowback.net/posts/jax-oom
-XLA_PYTHON_CLIENT_MEM_FRACTION=.8 python3 tests/test_brax.py 
+XLA_PYTHON_CLIENT_MEM_FRACTION=.8 python3 tests/test_brax.py
 """
 
-from brax.io import image
-from brax import envs
-
 import jax
+from brax import envs
+from brax.io import image
 
 rng = jax.random.PRNGKey(0)
 ant = envs.create("ant")

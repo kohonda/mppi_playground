@@ -4,14 +4,12 @@ Kohei Honda, 2023.
 
 from __future__ import annotations
 
-from typing import Tuple, Union
-from matplotlib import pyplot as plt
-
-import torch
-import numpy as np
 import os
+from typing import Tuple
 
-
+import numpy as np
+import torch
+from matplotlib import pyplot as plt
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 from envs.obstacle_map_2d import ObstacleMap, generate_random_obstacles
@@ -256,7 +254,9 @@ class Navigation2DEnv:
 
         return result
 
-    def cost_function(self, state: torch.Tensor, action: torch.Tensor, info: dict) -> torch.Tensor:
+    def cost_function(
+        self, state: torch.Tensor, action: torch.Tensor, info: dict
+    ) -> torch.Tensor:
         """
         Calculate cost function
         Args:
@@ -277,7 +277,6 @@ class Navigation2DEnv:
         cost = goal_cost + 10000 * obstacle_cost
 
         return cost
-
 
     def collision_check(self, state: torch.Tensor) -> torch.Tensor:
         """

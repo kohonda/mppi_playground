@@ -1,7 +1,4 @@
 import gymnasium
-import matplotlib
-
-matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -20,7 +17,6 @@ env.close()
 env = gymnasium.make("Pendulum-v1", render_mode="rgb_array")
 env = gymnasium.wrappers.RecordVideo(env=env, video_folder="video")
 _, _ = env.reset(seed=42)
-env.start_video_recorder()
 for _ in range(100):
     action = env.action_space.sample()
     observation, reward, terminated, truncated, info = env.step(action)

@@ -4,20 +4,17 @@ Michikuni Eguchi, 2024.
 
 from __future__ import annotations
 
-from typing import Tuple, Union
-from matplotlib import pyplot as plt
-
-import torch
-import numpy as np
 import os
+from typing import Tuple
 
-
+import numpy as np
+import torch
+from matplotlib import pyplot as plt
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
-from envs.obstacle_map_2d import ObstacleMap, generate_random_obstacles
+from envs.circuit_generator.path_generate import make_csv_paths, make_side_lane
 from envs.lane_map_2d import LaneMap
-from envs.circuit_generator.path_generate import make_side_lane, make_csv_paths
-
+from envs.obstacle_map_2d import ObstacleMap, generate_random_obstacles
 
 
 @torch.jit.script
@@ -39,7 +36,7 @@ class RacingEnv:
         # u: [accel, steer] (m/s2, rad)
         self.u_min = torch.tensor([-2.0, -0.25], device=self._device, dtype=self._dtype)
         self.u_max = torch.tensor([2.0, 0.25], device=self._device, dtype=self._dtype)
-        
+
         # model parameters
         self.L = torch.tensor(1, device=self._device, dtype=self._dtype)
         self.V_MAX = torch.tensor(8.0, device=self._device, dtype=self._dtype)
@@ -47,10 +44,16 @@ class RacingEnv:
         # generate reference path
         self.dl = 0.1
         self.line_width = 6.5
-        racing_center_path, _, _ = make_csv_paths("src/envs/circuit_generator/circuit.csv")
-        self.right_lane, self.left_lane = make_side_lane(racing_center_path, lane_width=self.line_width)
+        racing_center_path, _, _ = make_csv_paths(
+            "src/envs/circuit_generator/circuit.csv"
+        )
+        self.right_lane, self.left_lane = make_side_lane(
+            racing_center_path, lane_width=self.line_width
+        )
         # numpy array to tensor
-        self.racing_center_path = torch.tensor(racing_center_path, device=self._device, dtype=self._dtype)
+        self.racing_center_path = torch.tensor(
+            racing_center_path, device=self._device, dtype=self._dtype
+        )
 
         # generate cost maps (1: lane, 2: obstacle)
         self.map_size = (80, 80)
@@ -59,7 +62,7 @@ class RacingEnv:
         # 1: generate lane map
         self._lane_map = LaneMap(
             lane=racing_center_path,
-            lane_width=self.line_width*0.8,
+            lane_width=self.line_width * 0.8,
             map_size=self.map_size,
             cell_size=self.cell_size,
             device=self._device,
@@ -68,7 +71,10 @@ class RacingEnv:
 
         # 2: generate obstacles
         self._obstacle_map = ObstacleMap(
-            map_size=self.map_size, cell_size=self.cell_size, device=self._device, dtype=self._dtype
+            map_size=self.map_size,
+            cell_size=self.cell_size,
+            device=self._device,
+            dtype=self._dtype,
         )
         self._seed = seed
 
@@ -87,10 +93,14 @@ class RacingEnv:
         self._obstacle_map.convert_to_torch()
 
         self._start_pos = torch.tensor(
-            [self.racing_center_path[0][0], self.racing_center_path[0][1]], device=self._device, dtype=self._dtype
+            [self.racing_center_path[0][0], self.racing_center_path[0][1]],
+            device=self._device,
+            dtype=self._dtype,
         )
         self._goal_pos = torch.tensor(
-            [self.racing_center_path[-1][0], self.racing_center_path[-1][1]], device=self._device, dtype=self._dtype
+            [self.racing_center_path[-1][0], self.racing_center_path[-1][1]],
+            device=self._device,
+            dtype=self._dtype,
         )
 
         # state initialization
@@ -203,7 +213,7 @@ class RacingEnv:
             linestyle="--",
             zorder=5,
         )
-    
+
         # reference trajectory
         if reference_trajectory is not None:
             self._ax.plot(
@@ -213,8 +223,6 @@ class RacingEnv:
                 linestyle="dotted",
                 zorder=5,
             )
-
-
 
         # robot
         robot_x = self._robot_state[0].item()
@@ -358,7 +366,6 @@ class RacingEnv:
         clamped_x = torch.clamp(new_x, x_lim[0], x_lim[1])
         clamped_y = torch.clamp(new_y, y_lim[0], y_lim[1])
         clamped_v = torch.clamp(new_v, -self.V_MAX, self.V_MAX)
-
 
         result = torch.cat([clamped_x, clamped_y, new_theta, clamped_v], dim=1)
 

@@ -1,10 +1,10 @@
+import time
+
+import fire
+import gymnasium
 import torch
 
-import time
-import gymnasium
-import fire
-
-from controller.mppi import MPPI
+from mppi_playground import MPPI
 
 
 @torch.jit.script
@@ -22,8 +22,8 @@ def main(save_mode: bool = False):
         min_position = -1.2
         max_position = 0.6
         max_speed = 0.07
-        goal_position = 0.45
-        goal_velocity = 0.0
+        # goal_position = 0.45
+        # goal_velocity = 0.0
         power = 0.0015
 
         position = state[:, 0].view(-1, 1)
@@ -44,10 +44,10 @@ def main(save_mode: bool = False):
 
     def cost_func(state: torch.Tensor, action: torch.Tensor, info) -> torch.Tensor:
         goal_position = 0.45
-        goal_velocity = 0.0
+        # goal_velocity = 0.0
 
         position = state[:, 0]
-        velocity = state[:, 1]
+        # velocity = state[:, 1]
 
         cost = (goal_position - position) ** 2
         # + 0.01 * (velocity-goal_velocity)**2
@@ -87,7 +87,7 @@ def main(save_mode: bool = False):
         average_time = i / (i + 1) * average_time + elipsed_time / (i + 1)
 
         action_seq_np = action_seq.cpu().numpy()
-        state_seq_np = state_seq.cpu().numpy()
+        # state_seq_np = state_seq.cpu().numpy()
 
         # update simulator
         observation, reward, terminated, truncated, info = env.step(action_seq_np[0, :])

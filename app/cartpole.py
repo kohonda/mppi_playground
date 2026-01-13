@@ -1,11 +1,10 @@
+import time
+
+import fire
+import gymnasium
 import torch
 
-import time
-import gymnasium
-import fire
-import numpy as np
-
-from controller.mppi import MPPI
+from mppi_playground import MPPI
 
 
 @torch.jit.script
@@ -71,7 +70,7 @@ def main(save_mode: bool = False):
 
     def stage_cost(state: torch.Tensor, action: torch.Tensor, info) -> torch.Tensor:
         x = state[:, 0]
-        x_dt = state[:, 1]
+        # x_dt = state[:, 1]
         theta = state[:, 2]
         theta_dt = state[:, 3]
 
@@ -116,7 +115,7 @@ def main(save_mode: bool = False):
         average_time = i / (i + 1) * average_time + elipsed_time / (i + 1)
 
         action_seq_np = action_seq.cpu().numpy()
-        state_seq_np = state_seq.cpu().numpy()
+        # state_seq_np = state_seq.cpu().numpy()
 
         # convert continuous action to discrete action
         discrete_action = 0 if action_seq_np[0, 0] < 0 else 1

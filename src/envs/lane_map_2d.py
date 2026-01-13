@@ -2,12 +2,13 @@
 Michikuni Eguchi, 2024.
 """
 
-from typing import Callable, Tuple, List, Union
+from math import ceil
+from typing import Tuple
+
 import numpy as np
 import torch
-from math import ceil
-from matplotlib import pyplot as plt
 from scipy.ndimage import distance_transform_edt
+
 
 class LaneMap:
     """
@@ -82,7 +83,9 @@ class LaneMap:
         self._map = np.where(distance_map <= max_distance, 0, 1)
 
         # Convert the numpy map to torch tensor
-        self._map_torch = torch.tensor(self._map, device=self._device, dtype=self._dtype)
+        self._map_torch = torch.tensor(
+            self._map, device=self._device, dtype=self._dtype
+        )
 
     def compute_cost(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -120,4 +123,4 @@ class LaneMap:
 
     def render_occupancy(self, ax, cmap="binary") -> None:
         extent = [self.x_lim[0], self.x_lim[1], self.y_lim[0], self.y_lim[1]]
-        ax.imshow(self._map.T, cmap=cmap, origin='lower', extent=extent)
+        ax.imshow(self._map.T, cmap=cmap, origin="lower", extent=extent)

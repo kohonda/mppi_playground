@@ -1,21 +1,23 @@
-import torch
-import numpy as np
-from typing import Tuple
-
 import time
+from typing import Tuple
 
 # import gymnasium
 import fire
+import numpy as np
+import torch
 import tqdm
 
-from controller.mppi import MPPI
-from envs.racing_env import RacingEnv
-from envs.obstacle_map_2d import ObstacleMap
 from envs.lane_map_2d import LaneMap
+from envs.obstacle_map_2d import ObstacleMap
+from envs.racing_env import RacingEnv
+from mppi_playground import MPPI
+
 
 class racing_controller:
-    def __init__(self, env, debug=False, device=torch.device("cuda"), dtype=torch.float32) -> None:
-        
+    def __init__(
+        self, env, debug=False, device=torch.device("cuda"), dtype=torch.float32
+    ) -> None:
+
         self.debug = debug
         self.current_path_index = 0
 
@@ -57,7 +59,9 @@ class racing_controller:
         self.obstacle_map: ObstacleMap = None
         self.lane_map: LaneMap = None
 
-    def update(self, state: torch.Tensor, racing_center_path: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def update(
+        self, state: torch.Tensor, racing_center_path: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Update the controller with the current state and reference path.
         Args:
@@ -69,13 +73,25 @@ class racing_controller:
 
         # reference
         self.reference_path, self.current_path_index = self.calc_ref_trajectory(
-            state, racing_center_path, self.current_path_index, self.solver._horizon, DL=0.1, lookahead_distance=3, reference_path_interval=0.85
+            state,
+            racing_center_path,
+            self.current_path_index,
+            self.solver._horizon,
+            DL=0.1,
+            lookahead_distance=3,
+            reference_path_interval=0.85,
         )
 
-        if self.reference_path is None and self.obstacle_map is None and self.lane_map is None:
-            raise ValueError("reference path, obstacle map, and lane map must be set before calling solve method.")
+        if (
+            self.reference_path is None
+            and self.obstacle_map is None
+            and self.lane_map is None
+        ):
+            raise ValueError(
+                "reference path, obstacle map, and lane map must be set before calling solve method."
+            )
 
-        # solve        
+        # solve
         start = time.time()
         action_seq, state_seq = self.solver.forward(state=state)
         end = time.time()
@@ -85,15 +101,17 @@ class racing_controller:
             print("solve time: {}".format(round(solve_time * 1000, 2)), " [ms]")
 
         return action_seq, state_seq
-    
-    def get_top_samples(self, num_samples = 300) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    def get_top_samples(self, num_samples=300) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.solver.get_top_samples(num_samples=num_samples)
-    
+
     def set_cost_map(self, obstacle_map: ObstacleMap, lane_map: LaneMap) -> None:
         self.obstacle_map = obstacle_map
         self.lane_map = lane_map
 
-    def cost_function(self, state: torch.Tensor, action: torch.Tensor, info: dict) -> torch.Tensor:
+    def cost_function(
+        self, state: torch.Tensor, action: torch.Tensor, info: dict
+    ) -> torch.Tensor:
         """
         Calculate cost function
         Args:
@@ -104,14 +122,20 @@ class racing_controller:
         """
         # info
         prev_action = info["prev_action"]
-        t = info["t"] # horizon number
+        t = info["t"]  # horizon number
 
         # path cost
         # contouring and lag error of path
-        ec = torch.sin(self.reference_path[t, 2]) * (state[:, 0] - self.reference_path[t, 0]) \
-            -torch.cos(self.reference_path[t, 2]) * (state[:, 1] - self.reference_path[t, 1])
-        el = -torch.cos(self.reference_path[t, 2]) * (state[:, 0] - self.reference_path[t, 0]) \
-             -torch.sin(self.reference_path[t, 2]) * (state[:, 1] - self.reference_path[t, 1])
+        ec = torch.sin(self.reference_path[t, 2]) * (
+            state[:, 0] - self.reference_path[t, 0]
+        ) - torch.cos(self.reference_path[t, 2]) * (
+            state[:, 1] - self.reference_path[t, 1]
+        )
+        el = -torch.cos(self.reference_path[t, 2]) * (
+            state[:, 0] - self.reference_path[t, 0]
+        ) - torch.sin(self.reference_path[t, 2]) * (
+            state[:, 1] - self.reference_path[t, 1]
+        )
 
         path_cost = self.Qc * ec.pow(2) + self.Ql * el.pow(2)
 
@@ -122,7 +146,9 @@ class racing_controller:
 
         # compute obstacle cost from cost map
         pos_batch = state[:, :2].unsqueeze(1)  # (batch_size, 1, 2)
-        obstacle_cost = self.obstacle_map.compute_cost(pos_batch).squeeze(1)  # (batch_size,)
+        obstacle_cost = self.obstacle_map.compute_cost(pos_batch).squeeze(
+            1
+        )  # (batch_size,)
         obstacle_cost += self.lane_map.compute_cost(pos_batch).squeeze(1)
         obstacle_cost = self.Qo * obstacle_cost
 
@@ -133,10 +159,17 @@ class racing_controller:
         cost = path_cost + velocity_cost + obstacle_cost + input_cost
 
         return cost
-    
-    def calc_ref_trajectory(self, state: torch.Tensor, path: torch.Tensor, 
-                            cind: int, horizon: int, DL=0.1, lookahead_distance=1.0, reference_path_interval=0.5
-                            ) -> Tuple[torch.Tensor, int]:
+
+    def calc_ref_trajectory(
+        self,
+        state: torch.Tensor,
+        path: torch.Tensor,
+        cind: int,
+        horizon: int,
+        DL=0.1,
+        lookahead_distance=1.0,
+        reference_path_interval=0.5,
+    ) -> Tuple[torch.Tensor, int]:
         """
         Calculate the reference trajectory for the vehicle.
 
@@ -154,10 +187,18 @@ class racing_controller:
         """
 
         ncourse = len(path)
-        xref = torch.zeros((horizon + 1, state.shape[0]), dtype=state.dtype, device=state.device)
+        xref = torch.zeros(
+            (horizon + 1, state.shape[0]), dtype=state.dtype, device=state.device
+        )
 
         # Calculate the nearest index to the vehicle
-        ind = min(range(len(path)), key=lambda i: np.hypot(path[i, 0].cpu().numpy() - state[0].cpu().numpy(), path[i, 1].cpu().numpy() - state[1].cpu().numpy()))
+        ind = min(
+            range(len(path)),
+            key=lambda i: np.hypot(
+                path[i, 0].cpu().numpy() - state[0].cpu().numpy(),
+                path[i, 1].cpu().numpy() - state[1].cpu().numpy(),
+            ),
+        )
         # Ensure the index is not less than the current index
         ind = max(cind, ind)
 
@@ -183,12 +224,11 @@ def main(save_mode: bool = False):
     env = RacingEnv()
 
     # controller
-    controller = racing_controller(env, debug=True)
+    controller = racing_controller(env, debug=False)
     controller.set_cost_map(env._obstacle_map, env._lane_map)
 
     state = env.reset()
     max_steps = 500
-    average_time = 0
     for i in range(max_steps):
         action_seq, state_seq = controller.update(state, env.racing_center_path)
 
@@ -225,7 +265,6 @@ def main(save_mode: bool = False):
             print("Goal Reached!")
             break
 
-    print("average solve time: {}".format(average_time * 1000), " [ms]")
     env.close()  # close window and save video if save_mode is True
 
 
