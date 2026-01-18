@@ -65,7 +65,7 @@ def main(save_mode: bool = False):
         u_min=torch.tensor([-2.0]),
         u_max=torch.tensor([2.0]),
         sigmas=torch.tensor([1.0]),
-        lambda_=1.0,
+        lambda_="ESSPS",
     )
 
     average_time = 0

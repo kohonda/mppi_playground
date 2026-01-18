@@ -38,7 +38,6 @@ def main(save_mode: bool = False):
         u_max=torch.tensor([1.0, 1.0]),
         sigmas=torch.tensor([0.5, 0.5]),
         lambda_=1.0,
-        auto_lambda=False,
     )
 
     obs, info = env.reset(seed=seed)

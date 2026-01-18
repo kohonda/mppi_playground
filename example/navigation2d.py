@@ -23,8 +23,7 @@ def main(save_mode: bool = False):
         u_min=env.u_min,
         u_max=env.u_max,
         sigmas=torch.tensor([0.5, 0.5]),
-        lambda_=1.0,
-        auto_lambda=False,
+        lambda_="ESSPS",
     )
 
     state = env.reset()

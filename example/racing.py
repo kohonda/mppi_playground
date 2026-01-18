@@ -32,7 +32,6 @@ class racing_controller:
             u_max=env.u_max,
             sigmas=torch.tensor([0.5, 0.1]),
             lambda_=1.0,
-            auto_lambda=False,
         )
 
         # config

@@ -4,10 +4,12 @@ Kohei Honda, 2023.
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Tuple
+import math
+from typing import Callable, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
+from scipy.optimize import brentq, minimize_scalar
 from torch.distributions.multivariate_normal import MultivariateNormal
 
 
@@ -28,8 +30,11 @@ class MPPI(nn.Module):
         u_min: torch.Tensor,
         u_max: torch.Tensor,
         sigmas: torch.Tensor,
-        lambda_: float,
-        auto_lambda: bool = False,
+        lambda_: float | str,
+        lbps_delta: float = 0.01,
+        essps_target_ess: Optional[float] = None,
+        lambda_min: float = 0.01,
+        lambda_max: float = 10.0,
         exploration: float = 0.0,
         use_sg_filter: bool = False,
         sg_window_size: int = 5,
@@ -50,7 +55,11 @@ class MPPI(nn.Module):
         :param u_min: Minimum control.
         :param u_max: Maximum control.
         :param sigmas: Noise standard deviation for each control dimension.
-        :param lambda_: temperature parameter.
+        :param lambda_: temperature parameter or auto-lambda tuning method. Options: float or 'MPO', 'LBPS', 'ESSPS'.
+        :param lbps_delta: Confidence parameter for LBPS (default: 0.95).
+        :param essps_target_ess: Target effective sample size for ESSPS (default: num_samples/10).
+        :param lambda_min: Minimum lambda value for optimization bounds (default: 0.01).
+        :param lambda_max: Maximum lambda value for optimization bounds (default: 100.0).
         :param exploration: Exploration rate when sampling.
         :param use_sg_filter: Use Savitzky-Golay filter.
         :param sg_window_size: Window size for Savitzky-Golay filter. larger is smoother. Must be odd.
@@ -88,7 +97,6 @@ class MPPI(nn.Module):
         self._u_min = u_min.clone().detach().to(self._device, self._dtype)
         self._u_max = u_max.clone().detach().to(self._device, self._dtype)
         self._sigmas = sigmas.clone().detach().to(self._device, self._dtype)
-        self._lambda = lambda_
         self._exploration = exploration
         self._use_sg_filter = use_sg_filter
         self._sg_window_size = sg_window_size
@@ -154,14 +162,33 @@ class MPPI(nn.Module):
         )
 
         # auto lambda tuning
-        self._auto_lambda = auto_lambda
-        if auto_lambda:
+        self._lambda: float | str = lambda_
+        self._lbps_delta = lbps_delta
+        self._essps_target_ess = (
+            essps_target_ess if essps_target_ess is not None else num_samples / 10
+        )
+        self._lambda_min = lambda_min
+        self._lambda_max = lambda_max
+
+        if self._lambda == "MPO":
+            self._auto_lambda = "MPO"
+            self._lambda = 1.0  # initial value
             self.log_tempature = torch.nn.Parameter(
                 torch.log(
                     torch.tensor([self._lambda], device=self._device, dtype=self._dtype)
                 )
             )
             self.optimizer = torch.optim.Adam([self.log_tempature], lr=1e-2)
+        elif self._lambda == "LBPS":
+            self._auto_lambda = "LBPS"
+        elif self._lambda == "ESSPS":
+            self._auto_lambda = "ESSPS"
+        elif isinstance(self._lambda, float):
+            self._auto_lambda = None
+        else:
+            raise ValueError(
+                "lambda_ must be 'MPO', 'LBPS', 'ESSPS', or a float value."
+            )
 
     def reset(self):
         """
@@ -268,6 +295,38 @@ class MPPI(nn.Module):
             # + torch.sum(self._lambda * action_costs, dim=1)
         )
 
+        # Auto-tune lambda
+        if self._auto_lambda == "LBPS":
+            # Lower-Bound Policy Search
+            # ref: https://openreview.net/forum?id=HbGgF93Ppoy
+            result = minimize_scalar(
+                lambda lambda_: self._lbps_objective(lambda_, costs.detach()),
+                bounds=(self._lambda_min, self._lambda_max),
+                method="bounded",
+            )
+            self._lambda = result.x
+
+        elif self._auto_lambda == "ESSPS":
+            # Effective Sample Size Policy Search
+            # ref: https://openreview.net/forum?id=HbGgF93Ppoy
+            ess_at_min = self._compute_ess(
+                torch.softmax(-costs.detach() / self._lambda_min, dim=0)
+            )
+            ess_at_max = self._compute_ess(
+                torch.softmax(-costs.detach() / self._lambda_max, dim=0)
+            )
+
+            if self._essps_target_ess <= ess_at_min:
+                self._lambda = self._lambda_min
+            elif self._essps_target_ess >= ess_at_max:
+                self._lambda = self._lambda_max
+            else:
+                self._lambda = brentq(
+                    lambda lambda_: self._essps_objective(lambda_, costs.detach()),
+                    self._lambda_min,
+                    self._lambda_max,
+                )
+
         # calculate weights
         self._weights = torch.softmax(-costs / self._lambda, dim=0)
 
@@ -276,13 +335,12 @@ class MPPI(nn.Module):
             self._weights.view(self._num_samples, 1, 1) * self._perturbed_action_seqs,
             dim=0,
         )
-
         mean_action_seq = optimal_action_seq
 
-        # auto-tune temperature parameter
-        # Refer E step of MPO algorithm:
-        # https://arxiv.org/pdf/1806.06920
-        if self._auto_lambda:
+        if self._auto_lambda == "MPO":
+            # auto-tune temperature parameter
+            # Refer E step of MPO algorithm:
+            # https://arxiv.org/pdf/1806.06920
             for _ in range(1):
                 self.optimizer.zero_grad()
                 tempature = torch.nn.functional.softplus(self.log_tempature)
@@ -373,7 +431,7 @@ class MPPI(nn.Module):
 
     def get_samples_from_posterior(
         self, optimal_solution: torch.Tensor, state: torch.Tensor, num_samples: int
-    ) -> Tuple[torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         assert num_samples <= self._num_samples
 
         # posterior distribution of MPPI
@@ -407,6 +465,48 @@ class MPPI(nn.Module):
                 state_seqs[:, t, :], action_seqs[:, t, :]
             )
         return state_seqs
+
+    def _compute_ess(self, weights: torch.Tensor) -> float:
+        """Compute Effective Sample Size (ESS).
+
+        ESS = 1 / sum(weights^2)
+        Range: 1 <= ESS <= N
+        """
+        return 1.0 / torch.sum(weights**2).item()
+
+    def _lbps_objective(self, lambda_: float, costs: torch.Tensor) -> float:
+        """LBPS objective function (Lower-Bound Policy Search).
+
+        Maximizes the lower bound of expected return:
+        J_LB(λ) = E[R] - penalty
+        where penalty = R_range * sqrt((1-δ)/δ) / sqrt(ESS)
+
+        Returns negative value for minimization.
+        """
+        weights = torch.softmax(-costs / lambda_, dim=0)
+        ess = self._compute_ess(weights)
+
+        # Expected return (negative cost)
+        expected_return = -torch.sum(weights * costs).item()
+
+        # Penalty term
+        cost_range = (costs.max() - costs.min()).item()
+        penalty = (
+            cost_range
+            * math.sqrt((1 - self._lbps_delta) / self._lbps_delta)
+            / math.sqrt(ess)
+        )
+
+        return -(expected_return - penalty)  # Negative for minimization
+
+    def _essps_objective(self, lambda_: float, costs: torch.Tensor) -> float:
+        """ESSPS objective function (Effective Sample Size Policy Search).
+
+        Returns ESS - target_ess for root finding.
+        """
+        weights = torch.softmax(-costs / lambda_, dim=0)
+        ess = self._compute_ess(weights)
+        return ess - self._essps_target_ess
 
     def _savitzky_golay_coeffs(self, window_size: int, poly_order: int) -> torch.Tensor:
         """

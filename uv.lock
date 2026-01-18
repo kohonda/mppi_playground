@@ -1598,6 +1598,8 @@ name = "pi-mpc"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scipy", version = "1.17.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "torch" },
 ]
 
@@ -1632,6 +1634,7 @@ requires-dist = [
     { name = "numpy", marker = "extra == 'example'", specifier = ">=2.2.6" },
     { name = "pandas", marker = "extra == 'example'", specifier = ">=2.3.3" },
     { name = "pyqt5", marker = "extra == 'example'", specifier = ">=5.15.11" },
+    { name = "scipy", specifier = ">=1.15.3" },
     { name = "torch", specifier = ">=2.5.0" },
     { name = "tqdm", marker = "extra == 'example'", specifier = ">=4.67.1" },
 ]
