@@ -178,7 +178,6 @@ def make_side_lane(
 
 
 if __name__ == "__main__":
-
     road, right_lane, left_lane = make_csv_paths(
         "src/envs/circuit_generator/circuit.csv"
     )

@@ -6,7 +6,7 @@ import torch
 import tqdm
 
 from envs.navigation_2d import Navigation2DEnv
-from mppi_playground import MPPI
+from pi_mpc.mppi import MPPI
 
 
 def main(save_mode: bool = False):

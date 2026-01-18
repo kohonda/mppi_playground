@@ -26,14 +26,30 @@ repos:
       # Check for broken symlinks
       - id: check-symlinks
 
-  # Python code formatting with black
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.11.10
+  # Python code formatting with ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.14.13
     hooks:
+      # Run the linter.
       - id: ruff-check
         args: [--fix, --extend-select=I]
-  - repo: https://github.com/psf/black
-    rev: 25.1.0
+      # Run the formatter.
+      - id: ruff-format
+
+  # UV for managing pre-commit hooks
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.9.26
     hooks:
-      - id: black
-        args: [--quiet]
+      - id: uv-lock
+
+  # type checking with ty
+  # - repo: local
+  #   hooks:
+  #     - id: ty
+  #       name: ty
+  #       entry: uv run ty check
+  #       language: system
+  #       types: [python]
+  #       pass_filenames: false

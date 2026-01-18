@@ -3,10 +3,11 @@
 This repository contains an implementation of [Model Predictive Path Integral Control (MPPI)](https://arxiv.org/abs/1707.02342) with PyTorch to accelerate computations on the GPU.
 
 
-## Requirements
+## Tested Environment
 
-TODO: write
-
+- Ubuntu 22.04 or higher
+- GPU with NVIDIA Driver (510 or later, tested with 550) or CPU only
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ## Run Examples
 
@@ -18,12 +19,15 @@ git clone https://github.com/kohonda/mppi_playground.git
 cd mppi_playground
 # Install with extra dependencies for examples
 uv sync --extra example
+
+# uv run pre-commit install  # (optional) install pre-commit hooks for code formatting
+# uv run pre-commit run --all-files  # (optional) format code
 ```
 
 ### Navigation 2D
 
 ```bash
-uv run python app/navigation2d.py
+uv run python example/navigation2d.py
 ```
 
 <p align="center">
@@ -33,7 +37,7 @@ uv run python app/navigation2d.py
 ### Racing
 
 ```bash
-uv run python app/racing.py
+uv run python example/racing.py
 ```
 
 <p align="center">
@@ -45,7 +49,7 @@ uv run python app/racing.py
 ### Pendulum
 
 ```bash
-uv run python app/pendulum.py
+uv run python example/pendulum.py
 ```
 
 <p align="center">
@@ -55,7 +59,7 @@ uv run python app/pendulum.py
 ### Cartpole
 
 ```bash
-uv run python app/cartpole.py
+uv run python example/cartpole.py
 ```
 
 <p align="center">
@@ -65,7 +69,7 @@ uv run python app/cartpole.py
 ### Mountain car
 
 ```bash
-uv run python app/mountaincar.py
+uv run python example/mountaincar.py
 ```
 
 <p align="center">

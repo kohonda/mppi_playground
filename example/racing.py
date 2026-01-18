@@ -10,14 +10,13 @@ import tqdm
 from envs.lane_map_2d import LaneMap
 from envs.obstacle_map_2d import ObstacleMap
 from envs.racing_env import RacingEnv
-from mppi_playground import MPPI
+from pi_mpc.mppi import MPPI
 
 
 class racing_controller:
     def __init__(
         self, env, debug=False, device=torch.device("cuda"), dtype=torch.float32
     ) -> None:
-
         self.debug = debug
         self.current_path_index = 0
 

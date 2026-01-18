@@ -262,9 +262,9 @@ class MPPI(nn.Module):
 
         # In the original paper, the action cost is added to consider KL div. penalty,
         # but it is easier to tune without it
+        # please see: https://arxiv.org/abs/2511.08019
         costs = (
-            torch.sum(costs, dim=1)
-            + terminal_costs
+            torch.sum(costs, dim=1) + terminal_costs
             # + torch.sum(self._lambda * action_costs, dim=1)
         )
 
@@ -335,7 +335,7 @@ class MPPI(nn.Module):
             # use only N step optimal action seq
             optimal_action_seq = filtered_action_seq[-self._horizon :]
 
-        # predivtive state seq
+        # predictive state seq
         expanded_optimal_action_seq = optimal_action_seq.repeat(1, 1, 1)
         optimal_state_seq = self._states_prediction(state, expanded_optimal_action_seq)
 

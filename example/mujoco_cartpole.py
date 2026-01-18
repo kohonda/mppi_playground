@@ -4,7 +4,7 @@ import fire
 import gymnasium as gym
 import torch
 
-from mppi_playground import MPPI
+from pi_mpc.mppi import MPPI
 
 
 @torch.jit.script

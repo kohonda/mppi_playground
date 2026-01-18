@@ -7,9 +7,10 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["pi_mpc"]
 
 [project]
-name = "mppi_playground"
+name = "pi-mpc"
 version = "0.1.0"
 description = "PyTorch implementation of Model Predictive Path Integral (MPPI) Control with GPU acceleration"
 requires-python = ">=3.10,<3.14"
@@ -30,13 +31,9 @@ example = [
     "tqdm>=4.67.1",
 ]
 
-dev = [
-    "pre-commit>=4.2.0",
-    "clang-format>=19.1.6,<20",
-    "black>=25.1.0",
-    "flake8>=7.2.0",
-    "isort>=6.0.1",
-    "mypy>=1.15.0",
-    "pysen>=0.11.0",
-    "pytest>=8.3.5",
+[tool.uv]
+dev-dependencies = [
+    "pre-commit>=4.5.1",
+    "ruff>=0.14.13",
+    "ty>=0.0.12",
 ]

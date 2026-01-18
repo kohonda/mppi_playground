@@ -8,7 +8,7 @@ import torch
 import tqdm
 
 from envs.goal_in_danger_zone import GoalInDangerZoneEnv
-from mppi_playground import MPPI
+from pi_mpc.mppi import MPPI
 
 
 def main(save_mode: bool = False):
@@ -50,7 +50,6 @@ def main(save_mode: bool = False):
     episodic_reward = 0
     episodic_cost = 0
     for i in range(max_steps):
-
         obs = torch.tensor(obs, dtype=torch.float32)
         action_seq, predicted_traj = solver.forward(state=obs)
 
