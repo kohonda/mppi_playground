@@ -1,12 +1,11 @@
 # MPPI Playground
 
-This repository contains an implementation of [Model Predictive Path Integral Control (MPPI)](https://arxiv.org/abs/1707.02342) with PyTorch to accelerate computations on the GPU.
-
+This repository contains an implementation of [Model Predictive Path Integral Control (MPPI)](https://arxiv.org/abs/1707.02342) with PyTorch.
 
 ## Tested Environment
 
-- Ubuntu 22.04 or higher
-- GPU with NVIDIA Driver (510 or later, tested with 550) or CPU only
+- Ubuntu 20.04 or higher
+- [Optional] GPU with NVIDIA Driver (510 or later, tested with 550)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ## Run Examples
@@ -17,9 +16,7 @@ To run the example applications, install with additional dependencies:
 # Clone repository
 git clone https://github.com/kohonda/mppi_playground.git
 cd mppi_playground
-# Install with extra dependencies for examples
-uv sync --extra example
-
+uv sync --extra example # Install with extra dependencies for examples
 # uv run pre-commit install  # (optional) install pre-commit hooks for code formatting
 # uv run pre-commit run --all-files  # (optional) format code
 ```
@@ -75,7 +72,7 @@ uv run python example/mountaincar.py
 <p align="center">
   <img src="./media/mountaincar.gif" width="500" alt="mountaincar">
 </p>
-
+<!--
 ## Docker
 
 <details>
@@ -126,13 +123,34 @@ make build-gpu
 
 # Or run container via terminal
 make bash-gpu
+``` -->
+
+### Usage in Your Project
+
+Add dependency to your `pyproject.toml` and `uv sync`:
+
+```toml
+dependencies = [
+    "pi-mpc"
+]
+
+[tool.uv.sources]
+pi-mpc = {git = "https://github.com/kohonda/mppi_playground.git"}
 ```
 
-### Minimal Usage Example
+Or install via pip:
+
+```bash
+pip install git+https://github.com/kohonda/mppi_playground
+```
+
+<details>
+
+<summary>Minimal code example</summary>
 
 ```python
 import torch
-from mppi_playground import MPPI
+from pi_mpc.mppi import MPPI
 
 # Define dynamics function (batch processing: state [N, dim_state], action [N, dim_control])
 def dynamics(state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
@@ -165,6 +183,7 @@ current_state = torch.tensor([0.0, 0.0])
 action_seq, state_seq = controller(current_state)
 print(f"Optimal first action: {action_seq[0]}")
 ```
+</details>
 
 ## Citation
 
