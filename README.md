@@ -1,6 +1,14 @@
 # MPPI Playground
 
-This repository contains an implementation of [Model Predictive Path Integral Control (MPPI)](https://arxiv.org/abs/1707.02342) with PyTorch.
+A PyTorch implementation of [Model Predictive Path Integral Control (MPPI)](https://arxiv.org/abs/1707.02342).
+
+**Key Features:**
+
+- 🚀 GPU-accelerated parallel computation
+- 🧠 Differentiable implementation in PyTorch
+- ⚙️ Flexible definitions of dynamics and cost functions
+- 🔧 Additional useful features, including automatic temperature tuning and Savitzky–Golay trajectory smoothing
+- 🤖 Example applications
 
 ## Tested Environment
 
@@ -182,6 +190,68 @@ controller = MPPI(
 current_state = torch.tensor([0.0, 0.0])
 action_seq, state_seq = controller(current_state)
 print(f"Optimal first action: {action_seq[0]}")
+```
+</details>
+
+<details>
+
+<summary>Configurations</summary>
+
+### MPPI Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `horizon` | int | required | Prediction horizon length |
+| `num_samples` | int | required | Number of trajectory samples |
+| `dim_state` | int | required | State dimension |
+| `dim_control` | int | required | Control dimension |
+| `dynamics` | Callable | required | Dynamics model: `(state, action) -> next_state` |
+| `cost_func` | Callable | required | Cost function: `(state, action, info) -> cost` |
+| `u_min` | Tensor | required | Minimum control bounds, shape `(dim_control,)` |
+| `u_max` | Tensor | required | Maximum control bounds, shape `(dim_control,)` |
+| `sigmas` | Tensor | required | Noise std for each control dim, shape `(dim_control,)` |
+| `lambda_` | float / str | required | Temperature or auto-tuning method (`"MPO"`, `"LBPS"`, `"ESSPS"`) |
+
+### Auto-Lambda Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `lbps_delta` | float | 0.01 | Confidence parameter for LBPS (0 < δ < 1) |
+| `essps_target_ess` | float | num_samples/10 | Target effective sample size for ESSPS |
+| `lambda_min` | float | 0.01 | Minimum lambda bound for optimization |
+| `lambda_max` | float | 10.0 | Maximum lambda bound for optimization |
+
+### Sampling & Filtering Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `exploration` | float | 0.0 | Fraction of purely random samples (0 to 1) |
+| `use_sg_filter` | bool | False | Enable Savitzky-Golay smoothing |
+| `sg_window_size` | int | 5 | Window size for SG filter (must be odd) |
+| `sg_poly_order` | int | 3 | Polynomial order for SG filter |
+
+
+### Automatic Temperature Tuning (Auto-Lambda)
+
+The temperature parameter λ is a hyperparameter that controls the exploration-exploitation trade-off. Three auto-tuning methods are available:
+
+
+-  `MPO`: Gradient-based optimization: https://arxiv.org/abs/1806.06920
+-  `LBPS`: Lower-Bound Policy Search: https://openreview.net/forum?id=HbGgF93Ppoy
+- `ESSPS` : Effective Sample Size Policy Search: https://openreview.net/forum?id=HbGgF93Ppoy
+
+```python
+# Example: Enable auto-lambda with LBPS
+controller = MPPI(..., lambda_="LBPS", lbps_delta=0.01)
+```
+
+### Trajectory Smoothing
+
+- **Savitzky-Golay Filter**: Optional smoothing to reduce control jitter (https://arxiv.org/abs/1707.02342)
+
+```python
+# Example: Enable smoothing
+controller = MPPI(..., use_sg_filter=True, sg_window_size=5, sg_poly_order=3)
 ```
 </details>
 

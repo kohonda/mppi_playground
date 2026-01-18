@@ -14,9 +14,11 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 
 
 class MPPI(nn.Module):
-    """
-    Model Predictive Path Integral Control,
-    J. Williams et al., T-RO, 2017.
+    """Model Predictive Path Integral Control (MPPI) solver.
+
+    Reference:
+        Williams et al., "Information Theoretic MPC for Model-Based
+        Reinforcement Learning", IEEE T-RO, 2017.
     """
 
     def __init__(
@@ -43,30 +45,46 @@ class MPPI(nn.Module):
         dtype=torch.float32,
         seed: int = 42,
     ) -> None:
-        """
-        :param horizon: Predictive horizon length.
-        :param predictive_interval: Predictive interval (seconds).
-        :param delta: predictive horizon step size (seconds).
-        :param num_samples: Number of samples.
-        :param dim_state: Dimension of state.
-        :param dim_control: Dimension of control.
-        :param dynamics: Dynamics model.
-        :param cost_func: Cost function.
-        :param u_min: Minimum control.
-        :param u_max: Maximum control.
-        :param sigmas: Noise standard deviation for each control dimension.
-        :param lambda_: temperature parameter or auto-lambda tuning method. Options: float or 'MPO', 'LBPS', 'ESSPS'.
-        :param lbps_delta: Confidence parameter for LBPS (default: 0.95).
-        :param essps_target_ess: Target effective sample size for ESSPS (default: num_samples/10).
-        :param lambda_min: Minimum lambda value for optimization bounds (default: 0.01).
-        :param lambda_max: Maximum lambda value for optimization bounds (default: 100.0).
-        :param exploration: Exploration rate when sampling.
-        :param use_sg_filter: Use Savitzky-Golay filter.
-        :param sg_window_size: Window size for Savitzky-Golay filter. larger is smoother. Must be odd.
-        :param sg_poly_order: Polynomial order for Savitzky-Golay filter. Smaller is smoother.
-        :param device: Device to run the solver.
-        :param dtype: Data type to run the solver.
-        :param seed: Seed for torch.
+        """Initialize MPPI controller.
+
+        Args:
+            horizon: Predictive horizon length (number of timesteps).
+            num_samples: Number of trajectory samples to generate.
+            dim_state: Dimension of state vector.
+            dim_control: Dimension of control input vector.
+            dynamics: Dynamics model function: (state, action) -> next_state.
+            cost_func: Cost function: (state, action, info) -> cost.
+            u_min: Minimum control bounds, shape (dim_control,).
+            u_max: Maximum control bounds, shape (dim_control,).
+            sigmas: Noise standard deviation for each control dimension,
+                shape (dim_control,).
+            lambda_: Temperature parameter (float) or auto-tuning method
+                ('MPO', 'LBPS', 'ESSPS').
+
+        Auto-lambda args:
+            lbps_delta: Confidence parameter for LBPS (0 < delta < 1).
+                Higher values give tighter bounds. Default: 0.01.
+            essps_target_ess: Target effective sample size for ESSPS.
+                Default: num_samples / 10.
+            lambda_min: Minimum lambda for optimization bounds. Default: 0.01.
+            lambda_max: Maximum lambda for optimization bounds. Default: 10.0.
+
+        Sampling args:
+            exploration: Fraction of purely random samples (0 to 1).
+                Default: 0.0 (all samples inherit from previous solution).
+
+        Filtering args:
+            use_sg_filter: Apply Savitzky-Golay filter for smoothing.
+                Default: False.
+            sg_window_size: Window size for SG filter (must be odd).
+                Larger values give smoother output. Default: 5.
+            sg_poly_order: Polynomial order for SG filter.
+                Smaller values give smoother output. Default: 3.
+
+        Device args:
+            device: Torch device ('cuda' or 'cpu'). Default: 'cuda'.
+            dtype: Torch data type. Default: torch.float32.
+            seed: Random seed for reproducibility. Default: 42.
         """
 
         super().__init__()
@@ -138,7 +156,7 @@ class MPPI(nn.Module):
 
         self._previous_action_seq = zero_mean_seq
 
-        # init satitzky-golay filter
+        # Initialize Savitzky-Golay filter
         self._coeffs = self._savitzky_golay_coeffs(
             self._sg_window_size, self._sg_poly_order
         )
@@ -173,12 +191,13 @@ class MPPI(nn.Module):
         if self._lambda == "MPO":
             self._auto_lambda = "MPO"
             self._lambda = 1.0  # initial value
-            self.log_tempature = torch.nn.Parameter(
+            self._mpo_epsilon = 0.1
+            self.log_temperature = torch.nn.Parameter(
                 torch.log(
                     torch.tensor([self._lambda], device=self._device, dtype=self._dtype)
                 )
             )
-            self.optimizer = torch.optim.Adam([self.log_tempature], lr=1e-2)
+            self.optimizer = torch.optim.Adam([self.log_temperature], lr=0.2)
         elif self._lambda == "LBPS":
             self._auto_lambda = "LBPS"
         elif self._lambda == "ESSPS":
@@ -204,12 +223,26 @@ class MPPI(nn.Module):
     def forward(
         self, state: torch.Tensor, info: Dict = {}
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Solve the optimal control problem.
+        """Solve the optimal control problem for one timestep.
+
+        Algorithm steps:
+            1. Sample action sequences around previous solution
+            2. Rollout dynamics for all samples in parallel
+            3. Compute trajectory costs (stage + terminal)
+            4. Update temperature parameter (if auto-lambda enabled)
+            5. Compute importance weights using softmax
+            6. Compute optimal action as weighted average
+            7. Apply smoothing filter (if enabled)
+
         Args:
-            state (torch.Tensor): Current state.
+            state: Current state vector, shape (dim_state,).
+            info: Optional dictionary for passing additional context
+                to the cost function (e.g., reference trajectory).
+
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Tuple of predictive control and state sequence.
+            Tuple of (optimal_action_seq, optimal_state_seq):
+                - optimal_action_seq: Shape (horizon, dim_control)
+                - optimal_state_seq: Shape (horizon + 1, dim_state)
         """
         assert state.shape == (self._dim_state,)
 
@@ -221,24 +254,29 @@ class MPPI(nn.Module):
 
         mean_action_seq = self._previous_action_seq.clone().detach()
 
-        # random sampling with reparametrization trick
+        # =================================================================
+        # Step 1: Sample action sequences
+        # =================================================================
+        # Generate noise samples using reparametrization trick
         self._action_noises = self._noise_distribution.rsample(
             sample_shape=self._sample_shape
         )
 
-        # noise injection with exploration
+        # Split samples: (1-exploration) inherit from previous, rest are random
         threshold = int(self._num_samples * (1 - self._exploration))
         inherited_samples = mean_action_seq + self._action_noises[:threshold]
         self._perturbed_action_seqs = torch.cat(
             [inherited_samples, self._action_noises[threshold:]]
         )
 
-        # clamp actions
+        # Enforce control limits
         self._perturbed_action_seqs = torch.clamp(
             self._perturbed_action_seqs, self._u_min, self._u_max
         )
 
-        # rollout samples in parallel
+        # =================================================================
+        # Step 2: Rollout dynamics for all samples
+        # =================================================================
         self._state_seq_batch[:, 0, :] = state.repeat(self._num_samples, 1)
 
         for t in range(self._horizon):
@@ -247,7 +285,9 @@ class MPPI(nn.Module):
                 self._perturbed_action_seqs[:, t, :],
             )
 
-        # compute sample costs
+        # =================================================================
+        # Step 3: Compute trajectory costs
+        # =================================================================
         costs = torch.zeros(
             self._num_samples, self._horizon, device=self._device, dtype=self._dtype
         )
@@ -295,7 +335,9 @@ class MPPI(nn.Module):
             # + torch.sum(self._lambda * action_costs, dim=1)
         )
 
-        # Auto-tune lambda
+        # =================================================================
+        # Step 4: Update temperature (auto-lambda)
+        # =================================================================
         if self._auto_lambda == "LBPS":
             # Lower-Bound Policy Search
             # ref: https://openreview.net/forum?id=HbGgF93Ppoy
@@ -327,10 +369,15 @@ class MPPI(nn.Module):
                     self._lambda_max,
                 )
 
-        # calculate weights
+        # =================================================================
+        # Step 5: Compute importance weights
+        # =================================================================
+        # w_i = softmax(-cost_i / lambda) = exp(-cost_i/lambda) / sum(exp(-cost_j/lambda))
         self._weights = torch.softmax(-costs / self._lambda, dim=0)
 
-        # find optimal control by weighted average
+        # =================================================================
+        # Step 6: Compute optimal action as weighted average
+        # =================================================================
         optimal_action_seq = torch.sum(
             self._weights.view(self._num_samples, 1, 1) * self._perturbed_action_seqs,
             dim=0,
@@ -343,13 +390,12 @@ class MPPI(nn.Module):
             # https://arxiv.org/pdf/1806.06920
             for _ in range(1):
                 self.optimizer.zero_grad()
-                tempature = torch.nn.functional.softplus(self.log_tempature)
-                cost_logsumexp = torch.logsumexp(-costs / tempature, dim=0)
-                epsilon = 0.1  # tolerance hyperparameter for KL divergence
-                loss = tempature * (epsilon + torch.mean(cost_logsumexp))
+                temperature = torch.nn.functional.softplus(self.log_temperature)
+                cost_logsumexp = torch.logsumexp(-costs / temperature, dim=0)
+                loss = temperature * (self._mpo_epsilon + torch.mean(cost_logsumexp))
                 loss.backward()
                 self.optimizer.step()
-            self._lambda = torch.exp(self.log_tempature).item()
+            self._lambda = torch.exp(self.log_temperature).item()
 
         # calculate new covariance
         # https://arxiv.org/pdf/2104.00241
@@ -371,8 +417,11 @@ class MPPI(nn.Module):
         #     loc=zero_mean, covariance_matrix=self._covariance
         # )
 
+        # =================================================================
+        # Step 7: Apply smoothing filter (optional)
+        # =================================================================
         if self._use_sg_filter:
-            # apply savitzky-golay filter to N-1 previous action history + N optimal action seq
+            # Concatenate history with new optimal sequence for filtering
             prolonged_action_seq = torch.cat(
                 [
                     self._actions_history_for_sg,
@@ -381,7 +430,7 @@ class MPPI(nn.Module):
                 dim=0,
             )
 
-            # appply sg filter for each control dimension
+            # Apply SG filter for each control dimension
             filtered_action_seq = torch.zeros_like(
                 prolonged_action_seq, device=self._device, dtype=self._dtype
             )
@@ -390,17 +439,19 @@ class MPPI(nn.Module):
                     prolonged_action_seq[:, i], self._coeffs
                 )
 
-            # use only N step optimal action seq
+            # Extract filtered horizon-length sequence
             optimal_action_seq = filtered_action_seq[-self._horizon :]
 
-        # predictive state seq
+        # =================================================================
+        # Step 8: Predict state sequence and update history
+        # =================================================================
         expanded_optimal_action_seq = optimal_action_seq.repeat(1, 1, 1)
         optimal_state_seq = self._states_prediction(state, expanded_optimal_action_seq)
 
-        # update previous actions
+        # Store for warm-starting next iteration
         self._previous_action_seq = optimal_action_seq
 
-        # stuck previous actions for sg filter
+        # Update action history for Savitzky-Golay filter
         optimal_action = optimal_action_seq[0]
         self._actions_history_for_sg = torch.cat(
             [self._actions_history_for_sg[1:], optimal_action.view(1, -1)]
@@ -409,12 +460,18 @@ class MPPI(nn.Module):
         return optimal_action_seq, optimal_state_seq
 
     def get_top_samples(self, num_samples: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Get top samples.
+        """Get the top-weighted trajectory samples.
+
+        Retrieves the trajectories with highest importance weights from the
+        most recent forward pass. Useful for visualization or debugging.
+
         Args:
-            num_samples (int): Number of state samples to get.
+            num_samples: Number of top samples to retrieve.
+
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Tuple of top samples and their weights.
+            Tuple of (top_samples, top_weights):
+                - top_samples: Shape (num_samples, horizon + 1, dim_state)
+                - top_weights: Shape (num_samples,), sorted descending
         """
         assert num_samples <= self._num_samples
 
@@ -434,8 +491,8 @@ class MPPI(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         assert num_samples <= self._num_samples
 
-        # posterior distribution of MPPI
-        # covaraince is the same as noise distribution
+        # Posterior distribution of MPPI
+        # Covariance is the same as noise distribution
         posterior_distribution = MultivariateNormal(
             loc=optimal_solution, covariance_matrix=self._covariance
         )
