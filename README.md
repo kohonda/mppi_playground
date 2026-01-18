@@ -72,8 +72,8 @@ uv run python example/mountaincar.py
 <p align="center">
   <img src="./media/mountaincar.gif" width="500" alt="mountaincar">
 </p>
-<!--
-## Docker
+
+<!-- ## Docker
 
 <details>
 <summary>Docker Setup</summary>
@@ -123,7 +123,7 @@ make build-gpu
 
 # Or run container via terminal
 make bash-gpu
-``` -->
+```  -->
 
 ### Usage in Your Project
 
