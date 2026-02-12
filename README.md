@@ -261,7 +261,7 @@ If you use this repo in your work, please cite this paper (https://arxiv.org/abs
 
 ```
 @article{honda2025model,
-  title={Model Predictive Control via Probabilistic Inference: A Tutorial},
+  title={Model Predictive Control via Probabilistic Inference: A Tutorial and Survey},
   author={Honda, Kohei},
   journal={arXiv preprint arXiv:2511.08019},
   year={2025}
